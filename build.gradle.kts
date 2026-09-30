@@ -51,7 +51,8 @@ dependencies {
 	kspTest("io.mcarle:konvert:4.5.1")
 
 	testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
-	testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
+	testImplementation("org.junit.jupiter:junit-jupiter")
+	testImplementation("org.assertj:assertj-core")
 	testImplementation("io.mockk:mockk:1.14.7")
 	testImplementation("com.lemonappdev:konsist:0.17.3")
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")

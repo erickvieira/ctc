@@ -1,0 +1,38 @@
+title: Evento
+description: Representação de um evento e sua disponibilidade.
+type: object
+required:
+  - id
+  - name
+  - startsAt
+  - capacity
+  - available
+  - createdAt
+  - updatedAt
+properties:
+  id:
+    type: string
+    format: uuid
+  name:
+    type: string
+    example: Show da Banda X
+  startsAt:
+    type: string
+    format: date-time
+    example: '2026-10-15T20:00:00-03:00'
+  capacity:
+    type: integer
+    format: int32
+    description: Total de ingressos do evento. Deve ser >= 1 (regra de domínio).
+    example: 100
+  available:
+    type: integer
+    format: int32
+    description: Ingressos ainda não segurados por reservas pendentes.
+    example: 100
+  createdAt:
+    type: string
+    format: date-time
+  updatedAt:
+    type: string
+    format: date-time

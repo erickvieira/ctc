@@ -1,0 +1,29 @@
+post:
+  tags: [Events]
+  summary: Cria um evento.
+  operationId: createEvent
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../schemas/CreateEventRequest.yaml'
+  responses:
+    '201':
+      description: Evento criado.
+      headers:
+        Location:
+          description: URI do evento criado.
+          schema:
+            type: string
+            format: uri
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/Event.yaml'
+    '400':
+      description: Requisição inválida.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '../schemas/Problem.yaml'

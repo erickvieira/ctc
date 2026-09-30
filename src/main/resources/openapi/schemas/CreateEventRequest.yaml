@@ -1,0 +1,22 @@
+title: CreateEventRequest
+description: Dados para criação de um evento.
+type: object
+required:
+  - name
+  - startsAt
+  - capacity
+properties:
+  name:
+    type: string
+    example: Show da Banda X
+  startsAt:
+    type: string
+    format: date-time
+    example: '2026-10-15T20:00:00-03:00'
+  capacity:
+    type: integer
+    format: int32
+    description: >-
+      Total de ingressos do evento. Deve ser >= 1; o limite é validado pelo domínio
+      (por isso não há `minimum` no schema).
+    example: 100

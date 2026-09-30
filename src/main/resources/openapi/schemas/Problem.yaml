@@ -1,0 +1,36 @@
+title: Problem
+description: Resposta de erro no formato RFC 7807 (application/problem+json).
+type: object
+required:
+  - type
+  - title
+  - status
+  - detail
+  - code
+  - timestamp
+properties:
+  type:
+    type: string
+    format: uri
+    example: about:blank
+  title:
+    type: string
+    example: Requisição inválida
+  status:
+    type: integer
+    format: int32
+    example: 400
+  detail:
+    type: string
+    example: 'capacity: deve ser maior ou igual a 1'
+  instance:
+    type: string
+    format: uri
+    example: /events
+  code:
+    type: string
+    description: Código estável de erro, independente do texto.
+    example: INVALID_CAPACITY
+  timestamp:
+    type: string
+    format: date-time
