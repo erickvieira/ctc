@@ -1,0 +1,50 @@
+spring:
+  application:
+    name: flash-booking
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/flashbooking}
+    username: ${SPRING_DATASOURCE_USERNAME:flashbooking}
+    password: ${SPRING_DATASOURCE_PASSWORD:flashbooking}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST:localhost}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
+
+server:
+  port: ${SERVER_PORT:8080}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+app:
+  reservation:
+    ttl: 10m
+    max-per-reservation: 10
+  expiration:
+    sweep-interval: 2s
+    batch-size: 100
+  cache:
+    event-view-ttl: 30s
+    event-view-ttl-jitter: 5s
