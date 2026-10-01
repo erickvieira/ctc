@@ -1,7 +1,10 @@
 package dev.erickvieira.flashbooking.adapter.input.web.error
 
 import dev.erickvieira.flashbooking.domain.exception.EventNotFoundException
+import dev.erickvieira.flashbooking.domain.exception.EventSoldOutException
 import dev.erickvieira.flashbooking.domain.exception.InvalidCapacityException
+import dev.erickvieira.flashbooking.domain.exception.InvalidQuantityException
+import dev.erickvieira.flashbooking.domain.exception.ReservationNotFoundException
 import jakarta.servlet.http.HttpServletRequest
 import org.slf4j.LoggerFactory
 import org.springframework.dao.DataIntegrityViolationException
@@ -39,6 +42,27 @@ class ProblemDetailExceptionHandler(
 		request: HttpServletRequest,
 	): ResponseEntity<ProblemDetail> =
 		problem(HttpStatus.NOT_FOUND, "EVENT_NOT_FOUND", exception.message.orEmpty(), request)
+
+	@ExceptionHandler(ReservationNotFoundException::class)
+	fun handleReservationNotFound(
+		exception: ReservationNotFoundException,
+		request: HttpServletRequest,
+	): ResponseEntity<ProblemDetail> =
+		problem(HttpStatus.NOT_FOUND, "RESERVATION_NOT_FOUND", exception.message.orEmpty(), request)
+
+	@ExceptionHandler(InvalidQuantityException::class)
+	fun handleInvalidQuantity(
+		exception: InvalidQuantityException,
+		request: HttpServletRequest,
+	): ResponseEntity<ProblemDetail> =
+		problem(HttpStatus.BAD_REQUEST, "INVALID_QUANTITY", exception.message.orEmpty(), request)
+
+	@ExceptionHandler(EventSoldOutException::class)
+	fun handleEventSoldOut(
+		exception: EventSoldOutException,
+		request: HttpServletRequest,
+	): ResponseEntity<ProblemDetail> =
+		problem(HttpStatus.CONFLICT, "EVENT_SOLD_OUT", exception.message.orEmpty(), request)
 
 	@ExceptionHandler(MissingRequestHeaderException::class)
 	fun handleMissingHeader(
@@ -112,7 +136,7 @@ class ProblemDetailExceptionHandler(
 	): ResponseEntity<ProblemDetail> {
 		val body = ProblemDetail.forStatusAndDetail(status, detail)
 		body.type = URI.create("about:blank")
-		body.title = status.reasonPhrase
+		body.title = code
 		body.instance = URI.create(request.requestURI)
 		body.setProperty("code", code)
 		body.setProperty("timestamp", OffsetDateTime.now(clock))

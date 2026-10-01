@@ -1,0 +1,33 @@
+title: Reservation
+description: Representação de uma reserva e seu tempo de vida.
+type: object
+required:
+  - id
+  - eventId
+  - quantity
+  - status
+  - expiresAt
+  - createdAt
+  - updatedAt
+properties:
+  id:
+    type: string
+    format: uuid
+  eventId:
+    type: string
+    format: uuid
+  quantity:
+    type: integer
+    format: int32
+    example: 2
+  status:
+    $ref: './ReservationStatus.yaml'
+  expiresAt:
+    type: string
+    format: date-time
+  createdAt:
+    type: string
+    format: date-time
+  updatedAt:
+    type: string
+    format: date-time

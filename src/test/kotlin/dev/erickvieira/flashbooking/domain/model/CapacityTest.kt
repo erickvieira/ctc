@@ -33,4 +33,11 @@ class CapacityTest {
 			assertThat(exception.value).isEqualTo(-5)
 		}
 	}
+
+	@Test
+	fun `exposes the wrapped value through a boxed reference`() {
+		val boxed: List<Capacity> = listOf(Capacity.of(7))
+
+		assertThat(boxed[0].value).isEqualTo(7)
+	}
 }

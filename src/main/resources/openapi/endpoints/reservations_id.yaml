@@ -1,0 +1,31 @@
+get:
+  tags: [Reservations]
+  summary: Consulta uma reserva pelo id.
+  operationId: getReservation
+  parameters:
+    - $ref: '../api.yaml#/components/parameters/UserIdHeader'
+    - in: path
+      name: id
+      required: true
+      schema:
+        type: string
+        format: uuid
+  responses:
+    '200':
+      description: Reserva encontrada.
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/Reservation.yaml'
+    '400':
+      description: Requisição inválida.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '../schemas/Problem.yaml'
+    '404':
+      description: Reserva não encontrada.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '../schemas/Problem.yaml'

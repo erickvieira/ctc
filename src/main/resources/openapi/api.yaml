@@ -13,6 +13,10 @@ paths:
     $ref: './endpoints/events.yaml'
   /events/{id}:
     $ref: './endpoints/events_id.yaml'
+  /events/{id}/reservations:
+    $ref: './endpoints/events_id_reservations.yaml'
+  /reservations/{id}:
+    $ref: './endpoints/reservations_id.yaml'
 components:
   parameters:
     UserIdHeader:

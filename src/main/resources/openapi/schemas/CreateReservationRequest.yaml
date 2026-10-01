@@ -1,0 +1,13 @@
+title: CreateReservationRequest
+description: Dados para criação de uma reserva.
+type: object
+required:
+  - quantity
+properties:
+  quantity:
+    type: integer
+    format: int32
+    description: >-
+      Quantidade de ingressos a segurar. Deve ser de 1 até o máximo por reserva (configurável em
+      app.reservation.max-per-reservation, padrão 10); o limite é validado pelo domínio.
+    example: 2

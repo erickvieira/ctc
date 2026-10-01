@@ -1,0 +1,49 @@
+post:
+  tags: [Reservations]
+  summary: Reserva ingressos de um evento, segurando a disponibilidade temporariamente.
+  operationId: createReservation
+  parameters:
+    - $ref: '../api.yaml#/components/parameters/UserIdHeader'
+    - in: path
+      name: id
+      required: true
+      schema:
+        type: string
+        format: uuid
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../schemas/CreateReservationRequest.yaml'
+  responses:
+    '201':
+      description: Reserva criada.
+      headers:
+        Location:
+          description: URI da reserva criada.
+          schema:
+            type: string
+            format: uri
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/Reservation.yaml'
+    '400':
+      description: Requisição inválida.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '../schemas/Problem.yaml'
+    '404':
+      description: Evento não encontrado.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '../schemas/Problem.yaml'
+    '409':
+      description: Sem disponibilidade para a quantidade solicitada.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '../schemas/Problem.yaml'

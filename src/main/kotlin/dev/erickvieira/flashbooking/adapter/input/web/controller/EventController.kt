@@ -1,7 +1,7 @@
 package dev.erickvieira.flashbooking.adapter.input.web.controller
 
 import dev.erickvieira.flashbooking.adapter.input.web.api.EventsApi
-import dev.erickvieira.flashbooking.adapter.input.web.mapper.EventApiMapper
+import dev.erickvieira.flashbooking.adapter.input.web.mapper.EventApiMapperImpl
 import dev.erickvieira.flashbooking.adapter.input.web.model.CreateEventRequest
 import dev.erickvieira.flashbooking.adapter.input.web.model.Event as EventResponse
 import dev.erickvieira.flashbooking.port.input.CreateEventUseCase
@@ -15,18 +15,22 @@ import java.util.UUID
 class EventController(
     private val createEventUseCase: CreateEventUseCase,
     private val getEventUseCase: GetEventUseCase,
-    private val eventApiMapper: EventApiMapper,
 ) : EventsApi {
     override fun createEvent(
         xUserId: UUID,
         createEventRequest: CreateEventRequest,
     ): ResponseEntity<EventResponse> {
-        val created = createEventUseCase.create(eventApiMapper.toCommand(createEventRequest))
+        val created = createEventUseCase.create(command = EventApiMapperImpl.toCommand(createEventRequest))
         return ResponseEntity
             .created(URI.create("/events/${created.id}"))
-            .body(eventApiMapper.toResponse(created))
+            .body(EventApiMapperImpl.toResponse(created))
     }
 
-    override fun getEvent(xUserId: UUID, id: UUID): ResponseEntity<EventResponse> =
-        ResponseEntity.ok(eventApiMapper.toResponse(getEventUseCase.getById(id)))
+    override fun getEvent(
+        xUserId: UUID,
+        id: UUID,
+    ): ResponseEntity<EventResponse> =
+        getEventUseCase.getById(id)
+            .let { EventApiMapperImpl.toResponse(it) }
+            .let { ResponseEntity.ok(it) }
 }

@@ -68,13 +68,17 @@ dependencies {
 
     pitestTool("org.pitest:pitest-command-line:1.20.2")
     pitestTool("org.pitest:pitest-junit5-plugin:1.2.3")
-    pitestTool("eu.stamp-project:descartes:1.3.4")
     testImplementation(kotlin("test"))
 }
 
 kotlin {
     compilerOptions {
-        freeCompilerArgs.addAll("-Xjsr305=strict", "-Xannotation-default-target=param-property")
+        freeCompilerArgs.addAll(
+            "-Xjsr305=strict",
+            "-Xannotation-default-target=param-property",
+            "-Xno-param-assertions",
+            "-Xno-call-assertions",
+        )
     }
 }
 
@@ -129,6 +133,7 @@ val openapiGenerate =
                     "useSpringBoot4=true",
                     "useJackson3=true",
                     "useBeanValidation=true",
+                    "useTags=true",
                     "requestMappingMode=api_interface",
                     "documentationProvider=springdoc",
                     "apiPackage=dev.erickvieira.flashbooking.adapter.input.web.api",
@@ -164,12 +169,9 @@ val jacocoCoverageExclusions =
     listOf(
         // Framework bootstrap, never exercised by tests.
         "dev/erickvieira/flashbooking/FlashBookingApplication*",
-        // Adapters are exercised by the Testcontainers `integrationTest` source set,
-        // not by the infra-free unit run this coverage gate is bound to.
-        "dev/erickvieira/flashbooking/adapter/**",
-        // Generated mappers and framework configuration.
-        "**/*MapperImpl.class",
-        "**/*Config.class",
+        // Code generated from the OpenAPI contract (reproduced from the spec, not hand-written).
+        "dev/erickvieira/flashbooking/adapter/input/web/api/**",
+        "dev/erickvieira/flashbooking/adapter/input/web/model/**",
     )
 
 val coverageMinimum = 0.90
@@ -230,14 +232,17 @@ val mutationTest =
         args =
             listOf(
                 "--reportDir", reportDir.get().asFile.absolutePath,
-                "--targetClasses", "dev.erickvieira.flashbooking.domain.*,dev.erickvieira.flashbooking.application.*",
+                "--targetClasses", "dev.erickvieira.flashbooking.*",
                 "--targetTests", "dev.erickvieira.flashbooking.*",
+                "--excludedClasses",
+                "*Test*,dev.erickvieira.flashbooking.fixtures.*,dev.erickvieira.flashbooking.adapter.input.web.api.*,dev.erickvieira.flashbooking.adapter.input.web.model.*,org.openapitools.*,dev.erickvieira.flashbooking.FlashBookingApplication*",
                 "--sourceDirs", "src/main/kotlin",
-                "--mutationEngine", "descartes",
+                "--excludedMethods", "getValue",
                 "--classPath", projectClasspath.asPath,
                 "--outputFormats", "HTML,XML",
                 "--timestampedReports", "false",
                 "--threads", "4",
+                "--mutationThreshold", "90",
                 "--failWhenNoMutations", "false",
                 "--verbose", "false",
             )
