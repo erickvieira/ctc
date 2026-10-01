@@ -15,13 +15,12 @@ class HexagonalArchitectureTest : KoArchitectureAssertion by KoArchitectureCreat
 			val domain = Layer("Domain", "dev.erickvieira.flashbooking.domain..")
 			val port = Layer("Port", "dev.erickvieira.flashbooking.port..")
 			val application = Layer("Application", "dev.erickvieira.flashbooking.application..")
+			val adapter = Layer("Adapter", "dev.erickvieira.flashbooking.adapter..")
 
 			domain.dependsOnNothing()
 			port.dependsOn(domain)
 			application.dependsOn(domain, port)
-
-			// The Adapter layer joins this rule in E1.3/E1.4, once adapter code exists
-			// (Konsist requires every declared layer to contain files).
+			adapter.dependsOn(domain, port)
 		}
 	}
 

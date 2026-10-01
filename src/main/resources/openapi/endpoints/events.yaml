@@ -2,6 +2,8 @@ post:
   tags: [Events]
   summary: Cria um evento.
   operationId: createEvent
+  parameters:
+    - $ref: '../api.yaml#/components/parameters/UserIdHeader'
   requestBody:
     required: true
     content:

@@ -3,6 +3,7 @@ get:
   summary: Consulta um evento pelo id.
   operationId: getEvent
   parameters:
+    - $ref: '../api.yaml#/components/parameters/UserIdHeader'
     - in: path
       name: id
       required: true
@@ -16,6 +17,12 @@ get:
         application/json:
           schema:
             $ref: '../schemas/Event.yaml'
+    '400':
+      description: Requisição inválida.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '../schemas/Problem.yaml'
     '404':
       description: Evento não encontrado.
       content:
