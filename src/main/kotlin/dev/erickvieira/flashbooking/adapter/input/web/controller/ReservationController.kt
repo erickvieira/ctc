@@ -30,17 +30,18 @@ class ReservationController(
             request = createReservationRequest,
             maxPerReservation = properties.maxPerReservation,
         )
-        val created = createReservationUseCase.create(command)
+        val created = createReservationUseCase.create(command = command)
+        val response = ReservationApiMapperImpl.toResponse(reservation = created)
         return ResponseEntity
             .created(URI.create("/reservations/${created.id}"))
-            .body(ReservationApiMapperImpl.toResponse(created))
+            .body(response)
     }
 
     override fun getReservation(
         xUserId: UUID,
         id: UUID,
     ): ResponseEntity<ReservationResponse> =
-        getReservationUseCase.getByIdAndUserId(id, UserId(value = xUserId))
-            .let { ReservationApiMapperImpl.toResponse(it) }
+        getReservationUseCase.getByIdAndUserId(id = id, userId = UserId(value = xUserId))
+            .let { ReservationApiMapperImpl.toResponse(reservation = it) }
             .let { ResponseEntity.ok(it) }
 }

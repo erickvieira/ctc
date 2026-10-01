@@ -29,8 +29,8 @@ class EventService(
 				createdAt = now,
 				updatedAt = now,
 			)
-		return eventRepository.save(event)
+		return eventRepository.save(event = event)
 	}
 
-	override fun getById(id: UUID): Event = eventRepository.findById(id) ?: throw EventNotFoundException(id)
+	override fun getById(id: UUID): Event = eventRepository.findById(id = id) ?: throw EventNotFoundException(id = id)
 }

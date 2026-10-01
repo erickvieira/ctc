@@ -8,5 +8,5 @@ import jakarta.persistence.Converter
 class CapacityConverter : AttributeConverter<Capacity, Int> {
 	override fun convertToDatabaseColumn(attribute: Capacity): Int = attribute.value
 
-	override fun convertToEntityAttribute(dbData: Int): Capacity = Capacity.of(dbData)
+	override fun convertToEntityAttribute(dbData: Int): Capacity = Capacity.of(value = dbData)
 }

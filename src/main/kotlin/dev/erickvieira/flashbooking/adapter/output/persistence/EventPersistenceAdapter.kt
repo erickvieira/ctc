@@ -13,11 +13,14 @@ import java.util.UUID
 class EventPersistenceAdapter(
 	private val jpaRepository: EventJpaRepository,
 ) : EventRepository {
-	override fun save(event: Event): Event =
-		EventPersistenceMapperImpl.toDomain(jpaRepository.save(EventPersistenceMapperImpl.toEntity(event)))
+	override fun save(event: Event): Event {
+		val entity = EventPersistenceMapperImpl.toEntity(event = event)
+		val saved = jpaRepository.save(entity)
+		return EventPersistenceMapperImpl.toDomain(entity = saved)
+	}
 
 	override fun findById(id: UUID): Event? =
-		jpaRepository.findById(id).map { EventPersistenceMapperImpl.toDomain(it) }.orElse(null)
+		jpaRepository.findById(id).map { EventPersistenceMapperImpl.toDomain(entity = it) }.orElse(null)
 
 	override fun tryReserve(
 		eventId: UUID,

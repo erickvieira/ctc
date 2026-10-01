@@ -20,17 +20,19 @@ class EventController(
         xUserId: UUID,
         createEventRequest: CreateEventRequest,
     ): ResponseEntity<EventResponse> {
-        val created = createEventUseCase.create(command = EventApiMapperImpl.toCommand(createEventRequest))
+        val command = EventApiMapperImpl.toCommand(request = createEventRequest)
+        val created = createEventUseCase.create(command = command)
+        val response = EventApiMapperImpl.toResponse(event = created)
         return ResponseEntity
             .created(URI.create("/events/${created.id}"))
-            .body(EventApiMapperImpl.toResponse(created))
+            .body(response)
     }
 
     override fun getEvent(
         xUserId: UUID,
         id: UUID,
     ): ResponseEntity<EventResponse> =
-        getEventUseCase.getById(id)
-            .let { EventApiMapperImpl.toResponse(it) }
+        getEventUseCase.getById(id = id)
+            .let { EventApiMapperImpl.toResponse(event = it) }
             .let { ResponseEntity.ok(it) }
 }

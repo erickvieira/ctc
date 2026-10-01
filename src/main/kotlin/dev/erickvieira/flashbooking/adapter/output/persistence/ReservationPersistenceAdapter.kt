@@ -12,11 +12,13 @@ import java.util.UUID
 class ReservationPersistenceAdapter(
     private val jpaRepository: ReservationJpaRepository,
 ) : ReservationRepository {
-    override fun save(reservation: Reservation): Reservation =
-        jpaRepository.save(ReservationPersistenceMapperImpl.toEntity(reservation))
-            .let { ReservationPersistenceMapperImpl.toDomain(it) }
+    override fun save(reservation: Reservation): Reservation {
+        val entity = ReservationPersistenceMapperImpl.toEntity(reservation = reservation)
+        val saved = jpaRepository.save(entity)
+        return ReservationPersistenceMapperImpl.toDomain(entity = saved)
+    }
 
     override fun findByIdAndUserId(id: UUID, userId: UserId): Reservation? =
-        jpaRepository.findFirstByIdAndUserId(id, userId.value)
-            ?.let { ReservationPersistenceMapperImpl.toDomain(it) }
+        jpaRepository.findFirstByIdAndUserId(id = id, userId = userId.value)
+            ?.let { ReservationPersistenceMapperImpl.toDomain(entity = it) }
 }

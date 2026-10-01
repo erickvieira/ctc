@@ -25,124 +25,174 @@ import java.time.OffsetDateTime
 
 @RestControllerAdvice
 class ProblemDetailExceptionHandler(
-	private val clock: Clock,
+    private val clock: Clock,
 ) {
-	private val log = LoggerFactory.getLogger(javaClass)
+    private val log = LoggerFactory.getLogger(javaClass)
 
-	@ExceptionHandler(InvalidCapacityException::class)
-	fun handleInvalidCapacity(
-		exception: InvalidCapacityException,
-		request: HttpServletRequest,
-	): ResponseEntity<ProblemDetail> =
-		problem(HttpStatus.BAD_REQUEST, "INVALID_CAPACITY", exception.message.orEmpty(), request)
+    @ExceptionHandler(InvalidCapacityException::class)
+    fun handleInvalidCapacity(
+        exception: InvalidCapacityException,
+        request: HttpServletRequest,
+    ): ResponseEntity<ProblemDetail> =
+        problem(
+            status = HttpStatus.BAD_REQUEST,
+            code = "INVALID_CAPACITY",
+            detail = exception.message.orEmpty(),
+            request = request,
+        )
 
-	@ExceptionHandler(EventNotFoundException::class)
-	fun handleEventNotFound(
-		exception: EventNotFoundException,
-		request: HttpServletRequest,
-	): ResponseEntity<ProblemDetail> =
-		problem(HttpStatus.NOT_FOUND, "EVENT_NOT_FOUND", exception.message.orEmpty(), request)
+    @ExceptionHandler(EventNotFoundException::class)
+    fun handleEventNotFound(
+        exception: EventNotFoundException,
+        request: HttpServletRequest,
+    ): ResponseEntity<ProblemDetail> =
+        problem(
+            status = HttpStatus.NOT_FOUND,
+            code = "EVENT_NOT_FOUND",
+            detail = exception.message.orEmpty(),
+            request = request,
+        )
 
-	@ExceptionHandler(ReservationNotFoundException::class)
-	fun handleReservationNotFound(
-		exception: ReservationNotFoundException,
-		request: HttpServletRequest,
-	): ResponseEntity<ProblemDetail> =
-		problem(HttpStatus.NOT_FOUND, "RESERVATION_NOT_FOUND", exception.message.orEmpty(), request)
+    @ExceptionHandler(ReservationNotFoundException::class)
+    fun handleReservationNotFound(
+        exception: ReservationNotFoundException,
+        request: HttpServletRequest,
+    ): ResponseEntity<ProblemDetail> =
+        problem(
+            status = HttpStatus.NOT_FOUND,
+            code = "RESERVATION_NOT_FOUND",
+            detail = exception.message.orEmpty(),
+            request = request,
+        )
 
-	@ExceptionHandler(InvalidQuantityException::class)
-	fun handleInvalidQuantity(
-		exception: InvalidQuantityException,
-		request: HttpServletRequest,
-	): ResponseEntity<ProblemDetail> =
-		problem(HttpStatus.BAD_REQUEST, "INVALID_QUANTITY", exception.message.orEmpty(), request)
+    @ExceptionHandler(InvalidQuantityException::class)
+    fun handleInvalidQuantity(
+        exception: InvalidQuantityException,
+        request: HttpServletRequest,
+    ): ResponseEntity<ProblemDetail> =
+        problem(
+            status = HttpStatus.BAD_REQUEST,
+            code = "INVALID_QUANTITY",
+            detail = exception.message.orEmpty(),
+            request = request,
+        )
 
-	@ExceptionHandler(EventSoldOutException::class)
-	fun handleEventSoldOut(
-		exception: EventSoldOutException,
-		request: HttpServletRequest,
-	): ResponseEntity<ProblemDetail> =
-		problem(HttpStatus.CONFLICT, "EVENT_SOLD_OUT", exception.message.orEmpty(), request)
+    @ExceptionHandler(EventSoldOutException::class)
+    fun handleEventSoldOut(
+        exception: EventSoldOutException,
+        request: HttpServletRequest,
+    ): ResponseEntity<ProblemDetail> =
+        problem(
+            status = HttpStatus.CONFLICT,
+            code = "EVENT_SOLD_OUT",
+            detail = exception.message.orEmpty(),
+            request = request,
+        )
 
-	@ExceptionHandler(MissingRequestHeaderException::class)
-	fun handleMissingHeader(
-		exception: MissingRequestHeaderException,
-		request: HttpServletRequest,
-	): ResponseEntity<ProblemDetail> =
-		problem(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "missing required header '${exception.headerName}'", request)
+    @ExceptionHandler(MissingRequestHeaderException::class)
+    fun handleMissingHeader(
+        exception: MissingRequestHeaderException,
+        request: HttpServletRequest,
+    ): ResponseEntity<ProblemDetail> =
+        problem(
+            status = HttpStatus.BAD_REQUEST,
+            code = "VALIDATION_ERROR",
+            detail = "missing required header '${exception.headerName}'",
+            request = request,
+        )
 
-	@ExceptionHandler(MethodArgumentNotValidException::class)
-	fun handleBeanValidation(
-		exception: MethodArgumentNotValidException,
-		request: HttpServletRequest,
-	): ResponseEntity<ProblemDetail> {
-		val errors = exception.bindingResult.fieldErrors.map { "${it.field}: ${it.defaultMessage}" }
-		return problem(
-			HttpStatus.BAD_REQUEST,
-			"VALIDATION_ERROR",
-			errors.joinToString("; ").ifBlank { "invalid request" },
-			request,
-			errors,
-		)
-	}
+    @ExceptionHandler(MethodArgumentNotValidException::class)
+    fun handleBeanValidation(
+        exception: MethodArgumentNotValidException,
+        request: HttpServletRequest,
+    ): ResponseEntity<ProblemDetail> {
+        val errors = exception.bindingResult.fieldErrors.map { "${it.field}: ${it.defaultMessage}" }
+        return problem(
+            status = HttpStatus.BAD_REQUEST,
+            code = "VALIDATION_ERROR",
+            detail = errors.joinToString("; ").ifBlank { "invalid request" },
+            request = request,
+            errors = errors,
+        )
+    }
 
-	@ExceptionHandler(HttpMessageNotReadableException::class)
-	fun handleUnreadableBody(
-		exception: HttpMessageNotReadableException,
-		request: HttpServletRequest,
-	): ResponseEntity<ProblemDetail> =
-		problem(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "malformed request body", request)
+    @ExceptionHandler(HttpMessageNotReadableException::class)
+    fun handleUnreadableBody(
+        exception: HttpMessageNotReadableException,
+        request: HttpServletRequest,
+    ): ResponseEntity<ProblemDetail> =
+        problem(
+            status = HttpStatus.BAD_REQUEST,
+            code = "VALIDATION_ERROR",
+            detail = "malformed request body",
+            request = request,
+        )
 
-	@ExceptionHandler(MethodArgumentTypeMismatchException::class)
-	fun handleTypeMismatch(
-		exception: MethodArgumentTypeMismatchException,
-		request: HttpServletRequest,
-	): ResponseEntity<ProblemDetail> =
-		problem(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "invalid value for '${exception.name}'", request)
+    @ExceptionHandler(MethodArgumentTypeMismatchException::class)
+    fun handleTypeMismatch(
+        exception: MethodArgumentTypeMismatchException,
+        request: HttpServletRequest,
+    ): ResponseEntity<ProblemDetail> =
+        problem(
+            status = HttpStatus.BAD_REQUEST,
+            code = "VALIDATION_ERROR",
+            detail = "invalid value for '${exception.name}'",
+            request = request,
+        )
 
-	@ExceptionHandler(NoResourceFoundException::class)
-	fun handleNoResource(
-		exception: NoResourceFoundException,
-		request: HttpServletRequest,
-	): ResponseEntity<ProblemDetail> =
-		problem(HttpStatus.NOT_FOUND, "NOT_FOUND", "resource not found", request)
+    @ExceptionHandler(NoResourceFoundException::class)
+    fun handleNoResource(
+        exception: NoResourceFoundException,
+        request: HttpServletRequest,
+    ): ResponseEntity<ProblemDetail> =
+        problem(status = HttpStatus.NOT_FOUND, code = "NOT_FOUND", detail = "resource not found", request = request)
 
-	@ExceptionHandler(DataIntegrityViolationException::class)
-	fun handleDataIntegrity(
-		exception: DataIntegrityViolationException,
-		request: HttpServletRequest,
-	): ResponseEntity<ProblemDetail> {
-		// CHECK/FK violations are internal invariants that should never fire; log the constraint
-		// name Postgres assigned (inside the message) and return a generic 500.
-		log.error("data integrity violation: {}", exception.mostSpecificCause.message, exception)
-		return problem(HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", "unexpected consistency violation", request)
-	}
+    @ExceptionHandler(DataIntegrityViolationException::class)
+    fun handleDataIntegrity(
+        exception: DataIntegrityViolationException,
+        request: HttpServletRequest,
+    ): ResponseEntity<ProblemDetail> {
+        // CHECK/FK violations are internal invariants that should never fire; log the constraint
+        // name Postgres assigned (inside the message) and return a generic 500.
+        log.error("data integrity violation: {}", exception.mostSpecificCause.message, exception)
+        return problem(
+            status = HttpStatus.INTERNAL_SERVER_ERROR,
+            code = "INTERNAL_ERROR",
+            detail = "unexpected consistency violation",
+            request = request,
+        )
+    }
 
-	@ExceptionHandler(Exception::class)
-	fun handleUnexpected(
-		exception: Exception,
-		request: HttpServletRequest,
-	): ResponseEntity<ProblemDetail> {
-		log.error("unhandled error", exception)
-		return problem(HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", "unexpected error", request)
-	}
+    @ExceptionHandler(Exception::class)
+    fun handleUnexpected(
+        exception: Exception,
+        request: HttpServletRequest,
+    ): ResponseEntity<ProblemDetail> {
+        log.error("unhandled error", exception)
+        return problem(
+            status = HttpStatus.INTERNAL_SERVER_ERROR,
+            code = "INTERNAL_ERROR",
+            detail = "unexpected error",
+            request = request,
+        )
+    }
 
-	private fun problem(
-		status: HttpStatus,
-		code: String,
-		detail: String,
-		request: HttpServletRequest,
-		errors: List<String>? = null,
-	): ResponseEntity<ProblemDetail> {
-		val body = ProblemDetail.forStatusAndDetail(status, detail)
-		body.type = URI.create("about:blank")
-		body.title = code
-		body.instance = URI.create(request.requestURI)
-		body.setProperty("code", code)
-		body.setProperty("timestamp", OffsetDateTime.now(clock))
-		if (errors != null) {
-			body.setProperty("errors", errors)
-		}
-		return ResponseEntity.status(status).contentType(MediaType.APPLICATION_PROBLEM_JSON).body(body)
-	}
+    private fun problem(
+        status: HttpStatus,
+        code: String,
+        detail: String,
+        request: HttpServletRequest,
+        errors: List<String>? = null,
+    ): ResponseEntity<ProblemDetail> {
+        val body = ProblemDetail.forStatusAndDetail(status, detail)
+        body.type = URI.create("about:blank")
+        body.title = code
+        body.instance = URI.create(request.requestURI)
+        body.setProperty("code", code)
+        body.setProperty("timestamp", OffsetDateTime.now(clock))
+        if (errors != null) {
+            body.setProperty("errors", errors)
+        }
+        return ResponseEntity.status(status).contentType(MediaType.APPLICATION_PROBLEM_JSON).body(body)
+    }
 }

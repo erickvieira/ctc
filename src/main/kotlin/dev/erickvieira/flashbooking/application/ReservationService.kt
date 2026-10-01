@@ -28,10 +28,10 @@ class ReservationService(
     GetReservationUseCase {
     @Transactional
     override fun create(command: CreateReservationCommand): Reservation {
-        val event = eventRepository.findById(command.eventId) ?: throw EventNotFoundException(command.eventId)
+        val event = eventRepository.findById(id = command.eventId) ?: throw EventNotFoundException(id = command.eventId)
         val now = OffsetDateTime.now(clock)
-        if (!eventRepository.tryReserve(command.eventId, command.quantity, now)) {
-            throw EventSoldOutException(command.eventId)
+        if (!eventRepository.tryReserve(eventId = command.eventId, quantity = command.quantity, now = now)) {
+            throw EventSoldOutException(eventId = command.eventId)
         }
         val reservation =
             Reservation(
@@ -44,9 +44,9 @@ class ReservationService(
                 createdAt = now,
                 updatedAt = now,
             )
-        return reservationRepository.save(reservation)
+        return reservationRepository.save(reservation = reservation)
     }
 
     override fun getByIdAndUserId(id: UUID, userId: UserId): Reservation =
-        reservationRepository.findByIdAndUserId(id = id, userId = userId) ?: throw ReservationNotFoundException(id)
+        reservationRepository.findByIdAndUserId(id = id, userId = userId) ?: throw ReservationNotFoundException(id = id)
 }
