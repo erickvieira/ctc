@@ -39,3 +39,19 @@ jobs:
           name: integration-tests-report
           path: build/reports/tests/integrationTest
           if-no-files-found: ignore
+
+      - name: Compute integration test count badge
+        id: integration_metrics
+        run: python3 scripts/quality-metrics.py tests-integration >> "$GITHUB_OUTPUT"
+
+      - name: Publish integration test count badge
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        continue-on-error: true
+        uses: schneegans/dynamic-badges-action@v1.9.0
+        with:
+          auth: ${{ secrets.GIST_SECRET }}
+          gistID: ${{ secrets.GIST_ID }}
+          filename: tests-integration.json
+          label: integration tests
+          message: ${{ steps.integration_metrics.outputs.value }}
+          color: ${{ steps.integration_metrics.outputs.color }}

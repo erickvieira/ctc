@@ -4,6 +4,16 @@ Núcleo de reserva de ingressos para eventos de capacidade limitada em modelo **
 temporária de ingressos com **nunca-oversell**, idempotência, expiração automática e leitura com
 consistência eventual.
 
+[![Unit tests](https://github.com/erickvieira/ctc/actions/workflows/unit-tests.yml/badge.svg?branch=main)](https://github.com/erickvieira/ctc/actions/workflows/unit-tests.yml)
+[![Integration tests](https://github.com/erickvieira/ctc/actions/workflows/integration-tests.yml/badge.svg?branch=main)](https://github.com/erickvieira/ctc/actions/workflows/integration-tests.yml)
+[![Mutation tests](https://github.com/erickvieira/ctc/actions/workflows/mutation-tests.yml/badge.svg?branch=main)](https://github.com/erickvieira/ctc/actions/workflows/mutation-tests.yml)
+[![Build](https://github.com/erickvieira/ctc/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/erickvieira/ctc/actions/workflows/build.yml)
+
+![Coverage](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/erickvieira/0e45facbc6702751746313e68a827e8a/raw/coverage.json)
+![Mutation](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/erickvieira/0e45facbc6702751746313e68a827e8a/raw/mutation.json)
+![Unit tests](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/erickvieira/0e45facbc6702751746313e68a827e8a/raw/tests-unit.json)
+![Integration tests](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/erickvieira/0e45facbc6702751746313e68a827e8a/raw/tests-integration.json)
+
 ## Stack
 
 Kotlin 2.3.21 · Spring Boot 4.1.0 · Java 21 · Jackson 3 (`tools.jackson`) · PostgreSQL 16 · Redis 7 ·
@@ -75,6 +85,11 @@ Cada etapa roda isolada também: `./gradlew check`, `./gradlew integrationTest`,
 | Integration tests | `./gradlew integrationTest -PmaxParallelForks=2` | relatório de testes |
 | Mutation tests    | `./gradlew mutationTest`                         | relatório PIT       |
 | Build             | `./gradlew bootJar` + `docker build`             | jar                 |
+
+Os badges numéricos do topo (`coverage`, `mutation`, `unit tests`, `integration tests`) são publicados **apenas
+em push para a `main`**, via `schneegans/dynamic-badges-action` num gist servido pelo shields.io, a partir de
+`scripts/quality-metrics.py` (lê os XMLs de JaCoCo/PIT/JUnit). Requer os secrets do repositório `GIST_SECRET`
+(PAT com escopo `gist`) e `GIST_ID`.
 
 ## Decisões e trade-offs
 

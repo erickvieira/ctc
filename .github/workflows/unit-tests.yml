@@ -39,3 +39,35 @@ jobs:
           name: jacoco-report
           path: build/reports/jacoco/test/html
           if-no-files-found: ignore
+
+      - name: Compute coverage badge
+        id: coverage_metrics
+        run: python3 scripts/quality-metrics.py coverage >> "$GITHUB_OUTPUT"
+
+      - name: Compute unit test count badge
+        id: unit_metrics
+        run: python3 scripts/quality-metrics.py tests-unit >> "$GITHUB_OUTPUT"
+
+      - name: Publish coverage badge
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        continue-on-error: true
+        uses: schneegans/dynamic-badges-action@v1.9.0
+        with:
+          auth: ${{ secrets.GIST_SECRET }}
+          gistID: ${{ secrets.GIST_ID }}
+          filename: coverage.json
+          label: coverage
+          message: ${{ steps.coverage_metrics.outputs.value }}
+          color: ${{ steps.coverage_metrics.outputs.color }}
+
+      - name: Publish unit test count badge
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        continue-on-error: true
+        uses: schneegans/dynamic-badges-action@v1.9.0
+        with:
+          auth: ${{ secrets.GIST_SECRET }}
+          gistID: ${{ secrets.GIST_ID }}
+          filename: tests-unit.json
+          label: unit tests
+          message: ${{ steps.unit_metrics.outputs.value }}
+          color: ${{ steps.unit_metrics.outputs.color }}

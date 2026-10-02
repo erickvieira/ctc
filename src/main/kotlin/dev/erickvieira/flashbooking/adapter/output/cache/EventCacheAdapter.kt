@@ -8,9 +8,8 @@ import dev.erickvieira.flashbooking.port.output.EventCachePort
 import org.springframework.data.redis.core.StringRedisTemplate
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
-import tools.jackson.module.kotlin.readValue
 import java.time.Duration
-import java.util.*
+import java.util.UUID
 import kotlin.random.Random
 
 /**
@@ -25,7 +24,7 @@ class EventCacheAdapter(
 ) : EventCachePort {
     override fun get(eventId: UUID): Event? = read(key(eventId))?.let { json ->
         runCatching {
-            val cached = objectMapper.readValue<CachedEvent>(json)
+            val cached = objectMapper.readValue(json, CachedEvent::class.java)
             CachedEventMapperImpl.toDomain(cached = cached)
         }.getOrNull()
     }
