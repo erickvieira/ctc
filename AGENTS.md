@@ -2,6 +2,7 @@
 
 - **Mapper sem aninhamento**: nunca passe uma chamada de mapper (`XMapperImpl.to*`) como argumento de outra chamada. Atribua o resultado a um `val` nomeado, ou use encadeamento `.let`/`.map`/`?.let` onde o mapper recebe `it`.
 - **Named arguments**: instancie classes Kotlin (data class, value class, exceção) e chame funções/métodos Kotlin com named arguments — em produção **e** testes. Métodos Java (Spring/JPA/JDK), stdlib (AssertJ/MockK) e modelos gerados pelo OpenAPI ficam posicionais.
+- **Sem FQN inline**: em código Kotlin (produção, testes e `build.gradle.kts`), importe o tipo e use o nome simples — nunca escreva `pacote.subpacote.Tipo` no corpo. Isentas as strings que exigem o nome qualificado por natureza: expressões do Konvert, globs do Konsist/PIT, `mainClass.set("...")` e valores de `application*.yml`.
 
 # Testes
 

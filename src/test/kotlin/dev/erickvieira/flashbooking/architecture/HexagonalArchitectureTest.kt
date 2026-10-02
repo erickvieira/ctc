@@ -12,10 +12,10 @@ class HexagonalArchitectureTest : KoArchitectureAssertion by KoArchitectureCreat
 	@Test
 	fun `layers only depend inwards`() {
 		Konsist.scopeFromProduction().assertArchitecture {
-			val domain = Layer("Domain", "dev.erickvieira.flashbooking.domain..")
-			val port = Layer("Port", "dev.erickvieira.flashbooking.port..")
-			val application = Layer("Application", "dev.erickvieira.flashbooking.application..")
-			val adapter = Layer("Adapter", "dev.erickvieira.flashbooking.adapter..")
+			val domain = Layer("Domain", "$BASE_PACKAGE.domain..")
+			val port = Layer("Port", "$BASE_PACKAGE.port..")
+			val application = Layer("Application", "$BASE_PACKAGE.application..")
+			val adapter = Layer("Adapter", "$BASE_PACKAGE.adapter..")
 
 			domain.dependsOnNothing()
 			port.dependsOn(domain)
@@ -28,7 +28,7 @@ class HexagonalArchitectureTest : KoArchitectureAssertion by KoArchitectureCreat
 	fun `domain does not depend on frameworks`() {
 		Konsist.scopeFromProduction()
 			.files
-			.withPackage("dev.erickvieira.flashbooking.domain..")
+			.withPackage("$BASE_PACKAGE.domain..")
 			.assertFalse { file ->
 				file.imports.any { import ->
 					frameworkPrefixes.any { prefix -> import.name.startsWith(prefix) }
@@ -37,6 +37,7 @@ class HexagonalArchitectureTest : KoArchitectureAssertion by KoArchitectureCreat
 	}
 
 	private companion object {
+		const val BASE_PACKAGE = "dev.erickvieira.flashbooking"
 		val frameworkPrefixes = listOf("org.springframework", "jakarta.", "tools.jackson", "com.fasterxml.jackson")
 	}
 }

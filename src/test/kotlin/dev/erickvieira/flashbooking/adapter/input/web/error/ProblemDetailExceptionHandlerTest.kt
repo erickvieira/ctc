@@ -19,6 +19,7 @@ import org.springframework.http.HttpInputMessage
 import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
 import org.springframework.http.ProblemDetail
+import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.HttpMessageNotReadableException
 import org.springframework.validation.BeanPropertyBindingResult
 import org.springframework.validation.FieldError
@@ -249,7 +250,7 @@ class ProblemDetailExceptionHandlerTest {
 	}
 
 	private fun assertProblem(
-		response: org.springframework.http.ResponseEntity<ProblemDetail>,
+		response: ResponseEntity<ProblemDetail>,
 		status: HttpStatus,
 		code: String,
 		detail: String,
