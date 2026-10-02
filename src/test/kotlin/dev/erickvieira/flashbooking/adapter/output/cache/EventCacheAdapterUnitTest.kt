@@ -79,6 +79,18 @@ class EventCacheAdapterUnitTest {
 
 			verify(exactly = 1) { redisTemplate.opsForValue() }
 		}
+
+		@Test
+		fun `returns null when the cached payload is malformed`() {
+			val id = UUID.randomUUID()
+			every { redisTemplate.opsForValue() } returns valueOps
+			every { valueOps.get("event:$id") } returns "{not-json"
+
+			assertThat(cache.get(eventId = id)).isNull()
+
+			verify(exactly = 1) { redisTemplate.opsForValue() }
+			verify(exactly = 1) { valueOps.get("event:$id") }
+		}
 	}
 
 	@Nested

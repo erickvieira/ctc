@@ -166,9 +166,11 @@ val jacocoCoverageExclusions =
 
 val coverageMinimum = 0.90
 
+val testForks = (findProperty("maxParallelForks") as String?)?.toInt() ?: 8
+
 tasks.withType<Test> {
     useJUnitPlatform()
-    maxParallelForks = 8
+    maxParallelForks = testForks
     testLogging {
         events("passed", "skipped", "failed")
         exceptionFormat = TestExceptionFormat.SHORT

@@ -16,46 +16,66 @@ location_of() {
 	tr -d '\r' | awk -F': ' 'tolower($1) == "location" { print $2 }'
 }
 
-echo "==> GET ${BASE_URL}/actuator/health"
-curl -fsS "${BASE_URL}/actuator/health"
-echo
+expect() {
+	local expected="$1"
+	shift
+	local description="$1"
+	shift
+	local code
+	code="$(curl -s -o "${body_file}" -w '%{http_code}' "$@")"
+	if [[ "${code}" != "${expected}" ]]; then
+		printf 'FAIL %s: expected %s, got %s\n' "${description}" "${expected}" "${code}" >&2
+		cat "${body_file}" >&2
+		printf '\n' >&2
+		exit 1
+	fi
+	printf 'ok   %-52s -> %s\n' "${description}" "${code}"
+}
 
-echo "==> POST ${BASE_URL}/events (capacity 2)"
+echo "==> ${BASE_URL}"
+
+expect 200 "GET /actuator/health" "${BASE_URL}/actuator/health"
+
 event_id="$(
 	curl -fsS -X POST "${BASE_URL}/events" \
 		-H "X-User-Id: ${USER_ID}" -H 'Content-Type: application/json' \
-		-d '{"name":"Smoke Event","startsAt":"2026-10-15T20:00:00Z","capacity":2}' | json_field id
+		-d '{"name":"Smoke Event","startsAt":"2026-10-15T20:00:00Z","capacity":3}' | json_field id
 )"
-echo "event ${event_id}"
+echo "    event ${event_id}"
 
-echo "==> POST ${BASE_URL}/events/${event_id}/reservations (quantity 2)"
+expect 200 "GET /events/{id}" \
+	-H "X-User-Id: ${USER_ID}" "${BASE_URL}/events/${event_id}"
+
 reservation_location="$(
 	curl -fsS -D - -o "${body_file}" -X POST "${BASE_URL}/events/${event_id}/reservations" \
 		-H "X-User-Id: ${USER_ID}" -H 'Content-Type: application/json' \
 		-d '{"quantity":2}' | location_of
 )"
-cat "${body_file}"
-echo
-echo "reservation ${reservation_location}"
+echo "    reservation ${reservation_location}"
 
-echo "==> POST again (expect 409 EVENT_SOLD_OUT)"
-curl -s -o "${body_file}" -w '%{http_code}\n' -X POST "${BASE_URL}/events/${event_id}/reservations" \
-	-H "X-User-Id: ${USER_ID}" -H 'Content-Type: application/json' -d '{"quantity":1}'
-cat "${body_file}"
-echo
+expect 200 "GET /reservations/{id} (owner)" \
+	-H "X-User-Id: ${USER_ID}" "${BASE_URL}${reservation_location}"
+expect 404 "GET /reservations/{id} (another user)" \
+	-H "X-User-Id: ${OTHER_USER_ID}" "${BASE_URL}${reservation_location}"
 
-echo "==> GET ${BASE_URL}${reservation_location} as owner (expect 200)"
-curl -s -o "${body_file}" -w '%{http_code}\n' -H "X-User-Id: ${USER_ID}" "${BASE_URL}${reservation_location}"
-cat "${body_file}"
-echo
+expect 204 "POST /reservations/{id}/confirmation" \
+	-X POST -H "X-User-Id: ${USER_ID}" "${BASE_URL}${reservation_location}/confirmation"
+expect 204 "POST /reservations/{id}/confirmation (idempotent)" \
+	-X POST -H "X-User-Id: ${USER_ID}" "${BASE_URL}${reservation_location}/confirmation"
 
-echo "==> GET ${BASE_URL}${reservation_location} as another user (expect 404 RESERVATION_NOT_FOUND)"
-curl -s -o "${body_file}" -w '%{http_code}\n' -H "X-User-Id: ${OTHER_USER_ID}" "${BASE_URL}${reservation_location}"
-cat "${body_file}"
-echo
+expect 204 "DELETE /reservations/{id}" \
+	-X DELETE -H "X-User-Id: ${USER_ID}" "${BASE_URL}${reservation_location}"
+expect 204 "DELETE /reservations/{id} (idempotent)" \
+	-X DELETE -H "X-User-Id: ${USER_ID}" "${BASE_URL}${reservation_location}"
 
-echo "==> POST reservation with quantity above the maximum (expect 400 INVALID_QUANTITY)"
-curl -s -o "${body_file}" -w '%{http_code}\n' -X POST "${BASE_URL}/events/${event_id}/reservations" \
-	-H "X-User-Id: ${USER_ID}" -H 'Content-Type: application/json' -d '{"quantity":11}'
-cat "${body_file}"
-echo
+expect 201 "POST /events/{id}/reservations (refill)" \
+	-X POST -H "X-User-Id: ${USER_ID}" -H 'Content-Type: application/json' \
+	-d '{"quantity":3}' "${BASE_URL}/events/${event_id}/reservations"
+expect 409 "POST /events/{id}/reservations (sold out)" \
+	-X POST -H "X-User-Id: ${USER_ID}" -H 'Content-Type: application/json' \
+	-d '{"quantity":1}' "${BASE_URL}/events/${event_id}/reservations"
+expect 400 "POST /events/{id}/reservations (quantity above max)" \
+	-X POST -H "X-User-Id: ${USER_ID}" -H 'Content-Type: application/json' \
+	-d '{"quantity":11}' "${BASE_URL}/events/${event_id}/reservations"
+
+echo "smoke OK"
