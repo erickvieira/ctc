@@ -13,22 +13,22 @@ class CapacityTest {
 	inner class Of {
 		@Test
 		fun `accepts the minimum valid capacity`() {
-			assertThat(Capacity.of(1).value).isEqualTo(1)
+			assertThat(Capacity.of(value = 1).value).isEqualTo(1)
 		}
 
 		@Test
 		fun `accepts positive capacities`() {
-			assertThat(Capacity.of(100).value).isEqualTo(100)
+			assertThat(Capacity.of(value = 100).value).isEqualTo(100)
 		}
 
 		@Test
 		fun `rejects zero`() {
-			assertThrows<InvalidCapacityException> { Capacity.of(0) }
+			assertThrows<InvalidCapacityException> { Capacity.of(value = 0) }
 		}
 
 		@Test
 		fun `rejects negative capacities carrying the offending value`() {
-			val exception = assertThrows<InvalidCapacityException> { Capacity.of(-5) }
+			val exception = assertThrows<InvalidCapacityException> { Capacity.of(value = -5) }
 
 			assertThat(exception.value).isEqualTo(-5)
 		}
@@ -36,7 +36,7 @@ class CapacityTest {
 
 	@Test
 	fun `exposes the wrapped value through a boxed reference`() {
-		val boxed: List<Capacity> = listOf(Capacity.of(7))
+		val boxed: List<Capacity> = listOf(Capacity.of(value = 7))
 
 		assertThat(boxed[0].value).isEqualTo(7)
 	}

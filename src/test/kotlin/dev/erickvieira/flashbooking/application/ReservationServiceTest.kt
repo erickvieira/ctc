@@ -9,6 +9,7 @@ import dev.erickvieira.flashbooking.domain.model.Capacity
 import dev.erickvieira.flashbooking.domain.model.Event
 import dev.erickvieira.flashbooking.domain.model.Quantity
 import dev.erickvieira.flashbooking.domain.model.Reservation
+import dev.erickvieira.flashbooking.domain.model.ReservationInsertion
 import dev.erickvieira.flashbooking.domain.model.ReservationStatus
 import dev.erickvieira.flashbooking.domain.model.UserId
 import dev.erickvieira.flashbooking.fixtures.fake
@@ -39,7 +40,7 @@ class ReservationServiceTest {
 	private val properties = ReservationProperties(ttl = Duration.ofMinutes(10), maxPerReservation = 10)
 	private val eventRepository = mockk<EventRepository>()
 	private val reservationRepository = mockk<ReservationRepository>()
-	private val service = ReservationService(eventRepository, reservationRepository, properties, clock)
+	private val service = ReservationService(eventRepository = eventRepository, reservationRepository = reservationRepository, properties = properties, clock = clock)
 
 	@AfterEach
 	fun enforceStrictVerification() {
@@ -52,17 +53,19 @@ class ReservationServiceTest {
 	inner class Create {
 		@Test
 		fun `holds the seats and persists a pending reservation with the configured ttl`() {
-			val event = Event.fake(capacity = Capacity.of(100))
+			val event = Event.fake(capacity = Capacity.of(value = 100))
 			val command =
 				CreateReservationCommand.fake(
 					eventId = event.id,
 					quantity = Quantity.of(value = 2, max = 10),
 				)
-			every { eventRepository.findById(event.id) } returns event
-			every { eventRepository.tryReserve(event.id, command.quantity, fixedNow) } returns true
-			every { reservationRepository.save(any()) } answers { firstArg() }
+			every { eventRepository.findById(id = event.id) } returns event
+			every {
+				reservationRepository.insertIdempotent(reservation = any(), idempotency = command.idempotency)
+			} answers { ReservationInsertion.Created(reservation = firstArg()) }
+			every { eventRepository.tryReserve(eventId = event.id, quantity = command.quantity, now = fixedNow) } returns true
 
-			val created = service.create(command)
+			val insertion = service.create(command = command)
 
 			val expected =
 				Reservation.fake(
@@ -74,38 +77,62 @@ class ReservationServiceTest {
 					createdAt = fixedNow,
 					updatedAt = fixedNow,
 				)
-			assertThat(created).usingRecursiveComparison().ignoringFields("id").isEqualTo(expected)
-			assertThat(created.id).isNotNull()
-			verify(exactly = 1) { eventRepository.findById(event.id) }
-			verify(exactly = 1) { eventRepository.tryReserve(event.id, command.quantity, fixedNow) }
+			assertThat(insertion).usingRecursiveComparison().ignoringFields("reservation.id").isEqualTo(ReservationInsertion.Created(reservation = expected))
+			assertThat(insertion.reservation.id).isNotNull()
+			verify(exactly = 1) { eventRepository.findById(id = event.id) }
 			verify(exactly = 1) {
-				reservationRepository.save(
-					match { it.status == ReservationStatus.PENDING && it.quantity == command.quantity },
-				)
+				reservationRepository.insertIdempotent(reservation = any(), idempotency = command.idempotency)
 			}
+			verify(exactly = 1) { eventRepository.tryReserve(eventId = event.id, quantity = command.quantity, now = fixedNow) }
+		}
+
+		@Test
+		fun `replays the existing reservation without holding seats when the idempotency key is reused`() {
+			val event = Event.fake()
+			val command = CreateReservationCommand.fake(eventId = event.id, idempotencyKey = "key-1")
+			val existing = Reservation.fake(eventId = event.id, userId = command.userId)
+			every { eventRepository.findById(id = event.id) } returns event
+			every {
+				reservationRepository.insertIdempotent(reservation = any(), idempotency = command.idempotency)
+			} returns ReservationInsertion.Replayed(reservation = existing)
+
+			val insertion = service.create(command = command)
+
+			assertThat(insertion).usingRecursiveComparison().isEqualTo(ReservationInsertion.Replayed(reservation = existing))
+			verify(exactly = 1) { eventRepository.findById(id = event.id) }
+			verify(exactly = 1) {
+				reservationRepository.insertIdempotent(reservation = any(), idempotency = command.idempotency)
+			}
+			verify(exactly = 0) { eventRepository.tryReserve(eventId = any(), quantity = any(), now = any()) }
 		}
 
 		@Test
 		fun `fails when the event does not exist`() {
 			val eventId = UUID.randomUUID()
-			every { eventRepository.findById(eventId) } returns null
+			every { eventRepository.findById(id = eventId) } returns null
 
-			assertThrows<EventNotFoundException> { service.create(CreateReservationCommand.fake(eventId = eventId)) }
+			assertThrows<EventNotFoundException> { service.create(command = CreateReservationCommand.fake(eventId = eventId)) }
 
-			verify(exactly = 1) { eventRepository.findById(eventId) }
+			verify(exactly = 1) { eventRepository.findById(id = eventId) }
 		}
 
 		@Test
 		fun `fails when there is no availability`() {
-			val event = Event.fake(capacity = Capacity.of(1))
+			val event = Event.fake(capacity = Capacity.of(value = 1))
 			val command = CreateReservationCommand.fake(eventId = event.id)
-			every { eventRepository.findById(event.id) } returns event
-			every { eventRepository.tryReserve(event.id, command.quantity, fixedNow) } returns false
+			every { eventRepository.findById(id = event.id) } returns event
+			every {
+				reservationRepository.insertIdempotent(reservation = any(), idempotency = command.idempotency)
+			} returns ReservationInsertion.Created(reservation = Reservation.fake())
+			every { eventRepository.tryReserve(eventId = event.id, quantity = command.quantity, now = fixedNow) } returns false
 
-			assertThrows<EventSoldOutException> { service.create(command) }
+			assertThrows<EventSoldOutException> { service.create(command = command) }
 
-			verify(exactly = 1) { eventRepository.findById(event.id) }
-			verify(exactly = 1) { eventRepository.tryReserve(event.id, command.quantity, fixedNow) }
+			verify(exactly = 1) { eventRepository.findById(id = event.id) }
+			verify(exactly = 1) {
+				reservationRepository.insertIdempotent(reservation = any(), idempotency = command.idempotency)
+			}
+			verify(exactly = 1) { eventRepository.tryReserve(eventId = event.id, quantity = command.quantity, now = fixedNow) }
 		}
 	}
 
@@ -115,34 +142,34 @@ class ReservationServiceTest {
 		@Test
 		fun `returns the reservation when it belongs to the user`() {
 			val reservation = Reservation.fake()
-			every { reservationRepository.findByIdAndUserId(reservation.id, reservation.userId) } returns reservation
+			every { reservationRepository.findByIdAndUserId(id = reservation.id, userId = reservation.userId) } returns reservation
 
-			assertThat(service.getByIdAndUserId(reservation.id, reservation.userId))
+			assertThat(service.getByIdAndUserId(id = reservation.id, userId = reservation.userId))
 				.usingRecursiveComparison()
 				.isEqualTo(reservation)
-			verify(exactly = 1) { reservationRepository.findByIdAndUserId(reservation.id, reservation.userId) }
+			verify(exactly = 1) { reservationRepository.findByIdAndUserId(id = reservation.id, userId = reservation.userId) }
 		}
 
 		@Test
 		fun `throws when the reservation belongs to another user`() {
 			val reservation = Reservation.fake()
 			val otherUserId = UserId.fake()
-			every { reservationRepository.findByIdAndUserId(reservation.id, otherUserId) } returns null
+			every { reservationRepository.findByIdAndUserId(id = reservation.id, userId = otherUserId) } returns null
 
-			assertThrows<ReservationNotFoundException> { service.getByIdAndUserId(reservation.id, otherUserId) }
+			assertThrows<ReservationNotFoundException> { service.getByIdAndUserId(id = reservation.id, userId = otherUserId) }
 
-			verify(exactly = 1) { reservationRepository.findByIdAndUserId(reservation.id, otherUserId) }
+			verify(exactly = 1) { reservationRepository.findByIdAndUserId(id = reservation.id, userId = otherUserId) }
 		}
 
 		@Test
 		fun `throws when the reservation does not exist`() {
 			val id = UUID.randomUUID()
 			val userId = UserId.fake()
-			every { reservationRepository.findByIdAndUserId(id, userId) } returns null
+			every { reservationRepository.findByIdAndUserId(id = id, userId = userId) } returns null
 
-			assertThrows<ReservationNotFoundException> { service.getByIdAndUserId(id, userId) }
+			assertThrows<ReservationNotFoundException> { service.getByIdAndUserId(id = id, userId = userId) }
 
-			verify(exactly = 1) { reservationRepository.findByIdAndUserId(id, userId) }
+			verify(exactly = 1) { reservationRepository.findByIdAndUserId(id = id, userId = userId) }
 		}
 	}
 }

@@ -42,7 +42,7 @@ class ReservationConcurrencyIntegrationTest {
 	fun `never oversells under concurrent reservations`() {
 		val capacity = 50
 		val attempts = 100
-		val event = eventRepository.save(Event.fake(capacity = Capacity.of(capacity)))
+		val event = eventRepository.save(event = Event.fake(capacity = Capacity.of(value = capacity)))
 
 		val start = CountDownLatch(1)
 		val successes = AtomicInteger()
@@ -56,10 +56,11 @@ class ReservationConcurrencyIntegrationTest {
 						start.await()
 						try {
 							createReservationUseCase.create(
-								CreateReservationCommand.fake(
-									eventId = event.id,
-									quantity = Quantity.of(value = 1, max = 10),
-								),
+								command =
+									CreateReservationCommand.fake(
+										eventId = event.id,
+										quantity = Quantity.of(value = 1, max = 10),
+									),
 							)
 							successes.incrementAndGet()
 						} catch (_: EventSoldOutException) {
@@ -75,6 +76,6 @@ class ReservationConcurrencyIntegrationTest {
 
 		assertThat(successes.get()).isEqualTo(capacity)
 		assertThat(soldOut.get()).isEqualTo(attempts - capacity)
-		assertThat(eventRepository.findById(event.id)!!.available).isZero()
+		assertThat(eventRepository.findById(id = event.id)!!.available).isZero()
 	}
 }

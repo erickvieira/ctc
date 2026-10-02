@@ -7,7 +7,7 @@ import java.time.OffsetDateTime
 fun CreateEventCommand.Companion.fake(
 	name: String = "Event",
 	startsAt: OffsetDateTime = defaultOffsetDateTime,
-	capacity: Capacity = Capacity.of(10),
+	capacity: Capacity = Capacity.of(value = 10),
 ): CreateEventCommand =
 	CreateEventCommand(
 		name = name,

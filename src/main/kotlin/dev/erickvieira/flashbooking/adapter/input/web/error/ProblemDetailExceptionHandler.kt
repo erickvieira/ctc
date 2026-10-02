@@ -2,6 +2,7 @@ package dev.erickvieira.flashbooking.adapter.input.web.error
 
 import dev.erickvieira.flashbooking.domain.exception.EventNotFoundException
 import dev.erickvieira.flashbooking.domain.exception.EventSoldOutException
+import dev.erickvieira.flashbooking.domain.exception.IdempotencyConflictException
 import dev.erickvieira.flashbooking.domain.exception.InvalidCapacityException
 import dev.erickvieira.flashbooking.domain.exception.InvalidQuantityException
 import dev.erickvieira.flashbooking.domain.exception.ReservationNotFoundException
@@ -85,6 +86,18 @@ class ProblemDetailExceptionHandler(
         problem(
             status = HttpStatus.CONFLICT,
             code = "EVENT_SOLD_OUT",
+            detail = exception.message.orEmpty(),
+            request = request,
+        )
+
+    @ExceptionHandler(IdempotencyConflictException::class)
+    fun handleIdempotencyConflict(
+        exception: IdempotencyConflictException,
+        request: HttpServletRequest,
+    ): ResponseEntity<ProblemDetail> =
+        problem(
+            status = HttpStatus.CONFLICT,
+            code = "IDEMPOTENCY_CONFLICT",
             detail = exception.message.orEmpty(),
             request = request,
         )

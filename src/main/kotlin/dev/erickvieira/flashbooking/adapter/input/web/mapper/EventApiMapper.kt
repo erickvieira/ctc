@@ -17,7 +17,7 @@ interface EventApiMapper {
 		mappings = [
 			Mapping(
 				target = "capacity",
-				expression = "dev.erickvieira.flashbooking.domain.model.Capacity.of(it.capacity)",
+				expression = "dev.erickvieira.flashbooking.domain.model.Capacity.of(value = it.capacity)",
 			),
 		],
 	)

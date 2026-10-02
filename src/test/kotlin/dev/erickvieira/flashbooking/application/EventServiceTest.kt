@@ -26,7 +26,7 @@ class EventServiceTest {
 	private val fixedInstant = Instant.parse("2026-01-01T12:00:00Z")
 	private val clock = Clock.fixed(fixedInstant, ZoneOffset.UTC)
 	private val repository = mockk<EventRepository>()
-	private val service = EventService(repository, clock)
+	private val service = EventService(eventRepository = repository, clock = clock)
 
 	@AfterEach
 	fun enforceStrictVerification() {
@@ -39,18 +39,18 @@ class EventServiceTest {
 	inner class Create {
 		@Test
 		fun `persists the event with full availability and fixed timestamps`() {
-			every { repository.save(any()) } answers { firstArg() }
-			val command = CreateEventCommand.fake(name = "Show da Banda X", capacity = Capacity.of(100))
+			every { repository.save(event = any()) } answers { firstArg() }
+			val command = CreateEventCommand.fake(name = "Show da Banda X", capacity = Capacity.of(value = 100))
 
-			val created = service.create(command)
+			val created = service.create(command = command)
 
-			val expected = Event.fake(name = "Show da Banda X", capacity = Capacity.of(100))
+			val expected = Event.fake(name = "Show da Banda X", capacity = Capacity.of(value = 100))
 
 			assertThat(created).usingRecursiveComparison().ignoringFields("id").isEqualTo(expected)
 			assertThat(created.id).isNotNull()
 			verify(exactly = 1) {
 				repository.save(
-					match { it.name == "Show da Banda X" && it.available == 100 && it.capacity == Capacity.of(100) },
+					event = match { it.name == "Show da Banda X" && it.available == 100 && it.capacity == Capacity.of(value = 100) },
 				)
 			}
 		}
@@ -62,21 +62,21 @@ class EventServiceTest {
 		@Test
 		fun `returns the event when the repository finds it`() {
 			val event = Event.fake()
-			every { repository.findById(event.id) } returns event
+			every { repository.findById(id = event.id) } returns event
 
-			assertThat(service.getById(event.id)).usingRecursiveComparison().isEqualTo(event)
-			verify(exactly = 1) { repository.findById(event.id) }
+			assertThat(service.getById(id = event.id)).usingRecursiveComparison().isEqualTo(event)
+			verify(exactly = 1) { repository.findById(id = event.id) }
 		}
 
 		@Test
 		fun `throws when the event does not exist`() {
 			val id = UUID.randomUUID()
-			every { repository.findById(id) } returns null
+			every { repository.findById(id = id) } returns null
 
-			val exception = assertThrows<EventNotFoundException> { service.getById(id) }
+			val exception = assertThrows<EventNotFoundException> { service.getById(id = id) }
 
 			assertThat(exception.id).isEqualTo(id)
-			verify(exactly = 1) { repository.findById(id) }
+			verify(exactly = 1) { repository.findById(id = id) }
 		}
 	}
 }

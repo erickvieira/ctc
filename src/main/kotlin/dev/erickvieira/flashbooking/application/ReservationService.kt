@@ -6,6 +6,7 @@ import dev.erickvieira.flashbooking.domain.exception.EventNotFoundException
 import dev.erickvieira.flashbooking.domain.exception.EventSoldOutException
 import dev.erickvieira.flashbooking.domain.exception.ReservationNotFoundException
 import dev.erickvieira.flashbooking.domain.model.Reservation
+import dev.erickvieira.flashbooking.domain.model.ReservationInsertion
 import dev.erickvieira.flashbooking.domain.model.ReservationStatus
 import dev.erickvieira.flashbooking.domain.model.UserId
 import dev.erickvieira.flashbooking.port.input.CreateReservationUseCase
@@ -27,16 +28,13 @@ class ReservationService(
 ) : CreateReservationUseCase,
     GetReservationUseCase {
     @Transactional
-    override fun create(command: CreateReservationCommand): Reservation {
-        val event = eventRepository.findById(id = command.eventId) ?: throw EventNotFoundException(id = command.eventId)
+    override fun create(command: CreateReservationCommand): ReservationInsertion {
+        eventRepository.findById(id = command.eventId) ?: throw EventNotFoundException(id = command.eventId)
         val now = OffsetDateTime.now(clock)
-        if (!eventRepository.tryReserve(eventId = command.eventId, quantity = command.quantity, now = now)) {
-            throw EventSoldOutException(eventId = command.eventId)
-        }
         val reservation =
             Reservation(
                 id = UUID.randomUUID(),
-                eventId = event.id,
+                eventId = command.eventId,
                 userId = command.userId,
                 quantity = command.quantity,
                 status = ReservationStatus.PENDING,
@@ -44,7 +42,26 @@ class ReservationService(
                 createdAt = now,
                 updatedAt = now,
             )
-        return reservationRepository.save(reservation = reservation)
+        // O insert via NamedParameterJdbcTemplate participa da transação JPA porque usa a mesma
+        // DataSource; se o tryReserve falhar abaixo (sold out), o rollback desfaz o insert idempotente
+        // (ver ReservationApiIntegrationTest: "a sold-out attempt with an idempotency key is not replayed").
+        // Como a chave não fica persistida num sold-out, um retry com a mesma chave — depois que a
+        // capacidade for liberada — cria uma reserva nova (a tentativa que falhou não "queima" a chave).
+        return when (
+            val insertion =
+                reservationRepository.insertIdempotent(
+                    reservation = reservation,
+                    idempotency = command.idempotency,
+                )
+        ) {
+            is ReservationInsertion.Created -> {
+                if (!eventRepository.tryReserve(eventId = command.eventId, quantity = command.quantity, now = now)) {
+                    throw EventSoldOutException(eventId = command.eventId)
+                }
+                insertion
+            }
+            is ReservationInsertion.Replayed -> insertion
+        }
     }
 
     override fun getByIdAndUserId(id: UUID, userId: UserId): Reservation =

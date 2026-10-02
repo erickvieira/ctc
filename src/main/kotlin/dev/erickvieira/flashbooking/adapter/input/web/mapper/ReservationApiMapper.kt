@@ -18,11 +18,13 @@ interface ReservationApiMapper {
         id: UUID,
         request: CreateReservationRequest,
         maxPerReservation: Int,
+        idempotencyKey: String?,
     ): CreateReservationCommand =
         CreateReservationCommand(
             eventId = id,
             userId = UserId(value = userId),
             quantity = Quantity.of(value = request.quantity, max = maxPerReservation),
+            idempotencyKey = idempotencyKey,
         )
 
     @Konvert(

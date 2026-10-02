@@ -5,6 +5,7 @@ import dev.erickvieira.flashbooking.domain.model.Capacity
 import dev.erickvieira.flashbooking.domain.model.Event
 import dev.erickvieira.flashbooking.fixtures.fake
 import dev.erickvieira.flashbooking.port.output.EventRepository
+import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
@@ -112,8 +113,161 @@ class ReservationApiIntegrationTest {
 			.andExpect(jsonPath("$.code").value("RESERVATION_NOT_FOUND"))
 	}
 
+	@Test
+	fun `POST with the same idempotency key replays the reservation as 200`() {
+		val eventId = createEvent(capacity = 10)
+		val key = UUID.randomUUID().toString()
+		val body = """{"quantity":2}"""
+
+		val firstId =
+			mockMvc
+				.perform(
+					post("/events/$eventId/reservations")
+						.header(UserIdFilter.USER_ID_HEADER, userId)
+						.header("Idempotency-Key", key)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content(body),
+				)
+				.andExpect(status().isCreated)
+				.andReturn()
+				.response
+				.getHeader("Location")!!
+				.substringAfterLast("/")
+
+		mockMvc
+			.perform(
+				post("/events/$eventId/reservations")
+					.header(UserIdFilter.USER_ID_HEADER, userId)
+					.header("Idempotency-Key", key)
+					.contentType(MediaType.APPLICATION_JSON)
+					.content(body),
+			)
+			.andExpect(status().isOk)
+			.andExpect(jsonPath("$.id").value(firstId))
+	}
+
+	@Test
+	fun `POST reusing the idempotency key with a different payload is 409`() {
+		val eventId = createEvent(capacity = 10)
+		val key = UUID.randomUUID().toString()
+
+		mockMvc
+			.perform(
+				post("/events/$eventId/reservations")
+					.header(UserIdFilter.USER_ID_HEADER, userId)
+					.header("Idempotency-Key", key)
+					.contentType(MediaType.APPLICATION_JSON)
+					.content("""{"quantity":2}"""),
+			)
+			.andExpect(status().isCreated)
+
+		mockMvc
+			.perform(
+				post("/events/$eventId/reservations")
+					.header(UserIdFilter.USER_ID_HEADER, userId)
+					.header("Idempotency-Key", key)
+					.contentType(MediaType.APPLICATION_JSON)
+					.content("""{"quantity":3}"""),
+			)
+			.andExpect(status().isConflict)
+			.andExpect(jsonPath("$.code").value("IDEMPOTENCY_CONFLICT"))
+	}
+
+	@Test
+	fun `the same idempotency key is scoped per user`() {
+		val eventId = createEvent(capacity = 10)
+		val key = UUID.randomUUID().toString()
+
+		mockMvc
+			.perform(
+				post("/events/$eventId/reservations")
+					.header(UserIdFilter.USER_ID_HEADER, userId)
+					.header("Idempotency-Key", key)
+					.contentType(MediaType.APPLICATION_JSON)
+					.content("""{"quantity":2}"""),
+			)
+			.andExpect(status().isCreated)
+
+		mockMvc
+			.perform(
+				post("/events/$eventId/reservations")
+					.header(UserIdFilter.USER_ID_HEADER, otherUserId)
+					.header("Idempotency-Key", key)
+					.contentType(MediaType.APPLICATION_JSON)
+					.content("""{"quantity":2}"""),
+			)
+			.andExpect(status().isCreated)
+	}
+
+	@Test
+	fun `POST without an idempotency key always creates a new reservation`() {
+		val eventId = createEvent(capacity = 10)
+
+		val first = reserve(eventId, userId, "1")
+		val second = reserve(eventId, userId, "1")
+
+		assertThat(first).isNotEqualTo(second)
+	}
+
+	@Test
+	fun `reusing the same key for a different event is 409`() {
+		val firstEventId = createEvent(capacity = 10)
+		val secondEventId = createEvent(capacity = 10)
+		val key = UUID.randomUUID().toString()
+
+		mockMvc
+			.perform(
+				post("/events/$firstEventId/reservations")
+					.header(UserIdFilter.USER_ID_HEADER, userId)
+					.header("Idempotency-Key", key)
+					.contentType(MediaType.APPLICATION_JSON)
+					.content("""{"quantity":2}"""),
+			)
+			.andExpect(status().isCreated)
+
+		mockMvc
+			.perform(
+				post("/events/$secondEventId/reservations")
+					.header(UserIdFilter.USER_ID_HEADER, userId)
+					.header("Idempotency-Key", key)
+					.contentType(MediaType.APPLICATION_JSON)
+					.content("""{"quantity":2}"""),
+			)
+			.andExpect(status().isConflict)
+			.andExpect(jsonPath("$.code").value("IDEMPOTENCY_CONFLICT"))
+	}
+
+	@Test
+	fun `a sold-out attempt with an idempotency key is not replayed`() {
+		val eventId = createEvent(capacity = 1)
+		reserve(eventId, userId, "1")
+		val key = UUID.randomUUID().toString()
+
+		mockMvc
+			.perform(
+				post("/events/$eventId/reservations")
+					.header(UserIdFilter.USER_ID_HEADER, userId)
+					.header("Idempotency-Key", key)
+					.contentType(MediaType.APPLICATION_JSON)
+					.content("""{"quantity":1}"""),
+			)
+			.andExpect(status().isConflict)
+			.andExpect(jsonPath("$.code").value("EVENT_SOLD_OUT"))
+
+		mockMvc
+			.perform(
+				post("/events/$eventId/reservations")
+					.header(UserIdFilter.USER_ID_HEADER, userId)
+					.header("Idempotency-Key", key)
+					.contentType(MediaType.APPLICATION_JSON)
+					.content("""{"quantity":1}"""),
+			)
+			.andExpect(status().isConflict)
+			.andExpect(jsonPath("$.code").value("EVENT_SOLD_OUT"))
+	}
+
 	private fun createEvent(capacity: Int): UUID =
-		eventRepository.save(Event.fake(capacity = Capacity.of(capacity))).id
+		eventRepository.save(event = Event.fake(capacity = Capacity.of(value = capacity))).id
 
 	private fun reserve(
 		eventId: UUID,

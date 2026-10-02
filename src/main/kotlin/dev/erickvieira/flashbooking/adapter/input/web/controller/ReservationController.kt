@@ -5,6 +5,7 @@ import dev.erickvieira.flashbooking.adapter.input.web.mapper.ReservationApiMappe
 import dev.erickvieira.flashbooking.adapter.input.web.model.CreateReservationRequest
 import dev.erickvieira.flashbooking.adapter.input.web.model.Reservation as ReservationResponse
 import dev.erickvieira.flashbooking.config.ReservationProperties
+import dev.erickvieira.flashbooking.domain.model.ReservationInsertion
 import dev.erickvieira.flashbooking.domain.model.UserId
 import dev.erickvieira.flashbooking.port.input.CreateReservationUseCase
 import dev.erickvieira.flashbooking.port.input.GetReservationUseCase
@@ -23,18 +24,23 @@ class ReservationController(
         xUserId: UUID,
         id: UUID,
         createReservationRequest: CreateReservationRequest,
+        idempotencyKey: String?,
     ): ResponseEntity<ReservationResponse> {
-        val command = ReservationApiMapperImpl.toCommand(
-            id = id,
-            userId = xUserId,
-            request = createReservationRequest,
-            maxPerReservation = properties.maxPerReservation,
-        )
-        val created = createReservationUseCase.create(command = command)
-        val response = ReservationApiMapperImpl.toResponse(reservation = created)
-        return ResponseEntity
-            .created(URI.create("/reservations/${created.id}"))
-            .body(response)
+        val command =
+            ReservationApiMapperImpl.toCommand(
+                id = id,
+                userId = xUserId,
+                request = createReservationRequest,
+                maxPerReservation = properties.maxPerReservation,
+                idempotencyKey = idempotencyKey,
+            )
+        val insertion = createReservationUseCase.create(command = command)
+        val response = ReservationApiMapperImpl.toResponse(reservation = insertion.reservation)
+        val location = URI.create("/reservations/${insertion.reservation.id}")
+        return when (insertion) {
+            is ReservationInsertion.Created -> ResponseEntity.created(location).body(response)
+            is ReservationInsertion.Replayed -> ResponseEntity.ok().body(response)
+        }
     }
 
     override fun getReservation(

@@ -29,11 +29,11 @@ class EventPersistenceAdapterTest {
 
 	@Test
 	fun `save and findById round-trip the event`() {
-		val event = Event.fake(name = "Show da Banda X", capacity = Capacity.of(100))
+		val event = Event.fake(name = "Show da Banda X", capacity = Capacity.of(value = 100))
 
-		val saved = repository.save(event)
+		val saved = repository.save(event = event)
 
 		assertThat(saved).usingRecursiveComparison().isEqualTo(event)
-		assertThat(repository.findById(event.id)).usingRecursiveComparison().isEqualTo(event)
+		assertThat(repository.findById(id = event.id)).usingRecursiveComparison().isEqualTo(event)
 	}
 }

@@ -218,8 +218,12 @@ tasks.check {
 val mutationTest =
     tasks.register<JavaExec>("mutationTest") {
         group = "verification"
-        description = "Runs PIT mutation testing over the pure logic (domain + application)."
+        description = "Runs PIT mutation testing over the production code (excludes OpenAPI-generated)."
         dependsOn(tasks.classes, tasks.testClasses)
+
+        inputs.dir(layout.projectDirectory.dir("src/main/kotlin"))
+        inputs.dir(layout.projectDirectory.dir("src/test/kotlin"))
+        inputs.files(sourceSets.main.get().output, sourceSets.test.get().output)
 
         val projectClasspath =
             files(sourceSets.main.get().runtimeClasspath, sourceSets.test.get().runtimeClasspath)

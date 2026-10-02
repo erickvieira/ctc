@@ -9,7 +9,7 @@ fun Event.Companion.fake(
 	id: UUID = UUID.randomUUID(),
 	name: String = "Event",
 	startsAt: OffsetDateTime = defaultOffsetDateTime,
-	capacity: Capacity = Capacity.of(10),
+	capacity: Capacity = Capacity.of(value = 10),
 	available: Int = capacity.value,
 	createdAt: OffsetDateTime = defaultOffsetDateTime,
 	updatedAt: OffsetDateTime = defaultOffsetDateTime,

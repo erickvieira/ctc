@@ -9,9 +9,11 @@ fun CreateReservationCommand.Companion.fake(
 	eventId: UUID = UUID.randomUUID(),
 	userId: UserId = UserId.fake(),
 	quantity: Quantity = Quantity.fake(),
+	idempotencyKey: String? = null,
 ): CreateReservationCommand =
 	CreateReservationCommand(
 		eventId = eventId,
 		userId = userId,
 		quantity = quantity,
+		idempotencyKey = idempotencyKey,
 	)

@@ -4,6 +4,14 @@ post:
   operationId: createReservation
   parameters:
     - $ref: '../api.yaml#/components/parameters/UserIdHeader'
+    - in: header
+      name: Idempotency-Key
+      required: false
+      description: >-
+        Chave de idempotência opcional. Reexecutar a mesma chave com o mesmo payload retorna a
+        reserva original (200); reutilizar a chave com payload diferente retorna 409 IDEMPOTENCY_CONFLICT.
+      schema:
+        type: string
     - in: path
       name: id
       required: true
@@ -29,6 +37,12 @@ post:
         application/json:
           schema:
             $ref: '../schemas/Reservation.yaml'
+    '200':
+      description: Reserva reexecutada com a mesma chave de idempotência (replay).
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/Reservation.yaml'
     '400':
       description: Requisição inválida.
       content:
@@ -42,7 +56,7 @@ post:
           schema:
             $ref: '../schemas/Problem.yaml'
     '409':
-      description: Sem disponibilidade para a quantidade solicitada.
+      description: Sem disponibilidade para a quantidade solicitada, ou chave de idempotência reutilizada com payload diferente.
       content:
         application/problem+json:
           schema:
