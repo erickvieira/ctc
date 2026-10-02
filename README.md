@@ -115,13 +115,23 @@ fatia fechava com `verify` verde e era **revisada e commitada manualmente** — 
 escreveu código e testes, propôs trade-offs e operou a toolchain; as decisões de arquitetura foram revisadas
 e validadas a cada etapa, com gates de Konsist/JaCoCo/PIT e testes de concorrência contra infraestrutura real.
 
+### Custos
+
+O modelo selecionado para essa foi o DeepSeek v4.1 Flash devido principalmente ao
+seu [baixo custo médio por task](https://artificialanalysis.ai/models?cost=evaluation-breakdown&intelligence-index-token-use=intelligence-vs-token-use)
+(um dos mais baixos do mercado). Ao todo foram utilizadas apenas 2 sessões no opencode custado um total de **$ 6.33**.
+Aliado a isso, foi utilizado
+também [tokensave](https://tokensave.dev/), [graphify](https://github.com/Graphify-Labs/graphify)
+e [headroom](https://github.com/headroomlabs-ai/headroom) para ajudar a minimizar o consumo de tokens e,
+consequentemente, baratear a implementação.
+
 ## Evoluções futuras
 
 - Observabilidade (perfil `observability`: OpenTelemetry → Prometheus/Loki/Tempo → Grafana, dashboard RED).
 - Autenticação/autorização reais (hoje `X-User-Id` dependeria de um suposto gateway de autenticação para ser injetado).
 - Expurgo/limite de chaves de idempotência e índices parciais.
 - Listagem/paginação de eventos (cortado do escopo devido ao tempo; poderia ser feito usando cursor-based pagination).
-- Testes de carga e ajuste de pool/paralelismo.
+- Testes de carga e ajuste de pool/paralelismo (também cortados devido ao tempo).
 
 ## Configuração
 
