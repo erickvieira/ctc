@@ -39,19 +39,3 @@ jobs:
           name: pitest-report
           path: build/reports/pitest
           if-no-files-found: ignore
-
-      - name: Compute mutation badge
-        id: mutation_metrics
-        run: python3 scripts/quality-metrics.py mutation >> "$GITHUB_OUTPUT"
-
-      - name: Publish mutation badge
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        continue-on-error: true
-        uses: schneegans/dynamic-badges-action@v1.9.0
-        with:
-          auth: ${{ secrets.GIST_SECRET }}
-          gistID: ${{ secrets.GIST_ID }}
-          filename: mutation.json
-          label: mutation
-          message: ${{ steps.mutation_metrics.outputs.value }}
-          color: ${{ steps.mutation_metrics.outputs.color }}

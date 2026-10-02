@@ -40,34 +40,18 @@ jobs:
           path: build/reports/jacoco/test/html
           if-no-files-found: ignore
 
-      - name: Compute coverage badge
-        id: coverage_metrics
-        run: python3 scripts/quality-metrics.py coverage >> "$GITHUB_OUTPUT"
-
-      - name: Compute unit test count badge
-        id: unit_metrics
-        run: python3 scripts/quality-metrics.py tests-unit >> "$GITHUB_OUTPUT"
-
-      - name: Publish coverage badge
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        continue-on-error: true
-        uses: schneegans/dynamic-badges-action@v1.9.0
+      - name: Upload coverage XML
+        if: always()
+        uses: actions/upload-artifact@v4
         with:
-          auth: ${{ secrets.GIST_SECRET }}
-          gistID: ${{ secrets.GIST_ID }}
-          filename: coverage.json
-          label: coverage
-          message: ${{ steps.coverage_metrics.outputs.value }}
-          color: ${{ steps.coverage_metrics.outputs.color }}
+          name: coverage-xml
+          path: build/reports/jacoco/test/jacocoTestReport.xml
+          if-no-files-found: ignore
 
-      - name: Publish unit test count badge
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        continue-on-error: true
-        uses: schneegans/dynamic-badges-action@v1.9.0
+      - name: Upload unit test results
+        if: always()
+        uses: actions/upload-artifact@v4
         with:
-          auth: ${{ secrets.GIST_SECRET }}
-          gistID: ${{ secrets.GIST_ID }}
-          filename: tests-unit.json
-          label: unit tests
-          message: ${{ steps.unit_metrics.outputs.value }}
-          color: ${{ steps.unit_metrics.outputs.color }}
+          name: unit-test-results
+          path: build/test-results/test
+          if-no-files-found: ignore

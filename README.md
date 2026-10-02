@@ -77,19 +77,21 @@ Cada etapa roda isolada também: `./gradlew check`, `./gradlew integrationTest`,
 
 ### CI (GitHub Actions)
 
-`.github/workflows/` — quatro pipelines independentes, cada uma publicando artefatos:
+`.github/workflows/` — quatro pipelines de build/teste independentes, cada uma publicando artefatos:
 
-| Workflow          | Comando                                          | Artefato            |
-|-------------------|--------------------------------------------------|---------------------|
-| Unit tests        | `./gradlew check`                                | relatório JaCoCo    |
-| Integration tests | `./gradlew integrationTest -PmaxParallelForks=2` | relatório de testes |
-| Mutation tests    | `./gradlew mutationTest`                         | relatório PIT       |
-| Build             | `./gradlew bootJar` + `docker build`             | jar                 |
+| Workflow          | Comando                                          | Artefato                  |
+|-------------------|--------------------------------------------------|---------------------------|
+| Unit tests        | `./gradlew check`                                | relatórios JaCoCo + JUnit |
+| Integration tests | `./gradlew integrationTest -PmaxParallelForks=2` | relatórios Testcontainers |
+| Mutation tests    | `./gradlew mutationTest`                         | relatório PIT             |
+| Build             | `./gradlew bootJar` + `docker build`             | jar                       |
+| Badges            | após os testes (`workflow_run`)                  | badges no gist            |
 
-Os badges numéricos do topo (`coverage`, `mutation`, `unit tests`, `integration tests`) são publicados **apenas
-em push para a `main`**, via `schneegans/dynamic-badges-action` num gist servido pelo shields.io, a partir de
-`scripts/quality-metrics.py` (lê os XMLs de JaCoCo/PIT/JUnit). Requer os secrets do repositório `GIST_SECRET`
-(PAT com escopo `gist`) e `GIST_ID`.
+Os badges numéricos do topo (`coverage`, `mutation`, `unit tests`, `integration tests`) têm um **escritor único**
+(o workflow `Badges`), que roda **após os 3 workflows de teste na `main`**, baixa os relatórios (artefatos das
+outras runs) e grava os JSONs no gist via `schneegans/dynamic-badges-action` — assim não há escrita concorrente
+no mesmo gist (que causava `409 Conflict`). Os valores saem de `scripts/quality-metrics.py` (lê os XMLs de
+JaCoCo/PIT/JUnit). Requer os secrets do repositório `GIST_SECRET` (PAT com escopo `gist`) e `GIST_ID`.
 
 ## Decisões e trade-offs
 

@@ -1,0 +1,141 @@
+name: Badges
+
+on:
+  workflow_run:
+    workflows: ["Unit tests", "Integration tests", "Mutation tests"]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: badges-gist
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish quality badges
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: github.event.workflow_run.conclusion == 'success'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve latest successful run ids
+        id: runs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          unit="$(gh run list -R "${GITHUB_REPOSITORY}" -w unit-tests.yml -b main -L 30 --json databaseId,conclusion -q '[.[] | select(.conclusion == "success")][0].databaseId')"
+          integration="$(gh run list -R "${GITHUB_REPOSITORY}" -w integration-tests.yml -b main -L 30 --json databaseId,conclusion -q '[.[] | select(.conclusion == "success")][0].databaseId')"
+          mutation="$(gh run list -R "${GITHUB_REPOSITORY}" -w mutation-tests.yml -b main -L 30 --json databaseId,conclusion -q '[.[] | select(.conclusion == "success")][0].databaseId')"
+          echo "unit=${unit}" >> "$GITHUB_OUTPUT"
+          echo "integration=${integration}" >> "$GITHUB_OUTPUT"
+          echo "mutation=${mutation}" >> "$GITHUB_OUTPUT"
+
+      - name: Download coverage XML
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-xml
+          run-id: ${{ steps.runs.outputs.unit }}
+          path: build/reports/jacoco/test
+          github-token: ${{ github.token }}
+
+      - name: Download unit test results
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: unit-test-results
+          run-id: ${{ steps.runs.outputs.unit }}
+          path: build/test-results/test
+          github-token: ${{ github.token }}
+
+      - name: Download integration test results
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: integration-test-results
+          run-id: ${{ steps.runs.outputs.integration }}
+          path: build/test-results/integrationTest
+          github-token: ${{ github.token }}
+
+      - name: Download mutation report
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: pitest-report
+          run-id: ${{ steps.runs.outputs.mutation }}
+          path: build/reports/pitest
+          github-token: ${{ github.token }}
+
+      - name: Compute coverage badge
+        id: coverage
+        continue-on-error: true
+        run: python3 scripts/quality-metrics.py coverage >> "$GITHUB_OUTPUT"
+
+      - name: Compute mutation badge
+        id: mutation
+        continue-on-error: true
+        run: python3 scripts/quality-metrics.py mutation >> "$GITHUB_OUTPUT"
+
+      - name: Compute unit test badge
+        id: unit
+        continue-on-error: true
+        run: python3 scripts/quality-metrics.py tests-unit >> "$GITHUB_OUTPUT"
+
+      - name: Compute integration test badge
+        id: integration
+        continue-on-error: true
+        run: python3 scripts/quality-metrics.py tests-integration >> "$GITHUB_OUTPUT"
+
+      - name: Publish coverage badge
+        if: steps.coverage.outputs.value != ''
+        continue-on-error: true
+        uses: schneegans/dynamic-badges-action@v1.9.0
+        with:
+          auth: ${{ secrets.GIST_SECRET }}
+          gistID: ${{ secrets.GIST_ID }}
+          filename: coverage.json
+          label: coverage
+          message: ${{ steps.coverage.outputs.value }}
+          color: ${{ steps.coverage.outputs.color }}
+
+      - name: Publish mutation badge
+        if: steps.mutation.outputs.value != ''
+        continue-on-error: true
+        uses: schneegans/dynamic-badges-action@v1.9.0
+        with:
+          auth: ${{ secrets.GIST_SECRET }}
+          gistID: ${{ secrets.GIST_ID }}
+          filename: mutation.json
+          label: mutation
+          message: ${{ steps.mutation.outputs.value }}
+          color: ${{ steps.mutation.outputs.color }}
+
+      - name: Publish unit test badge
+        if: steps.unit.outputs.value != ''
+        continue-on-error: true
+        uses: schneegans/dynamic-badges-action@v1.9.0
+        with:
+          auth: ${{ secrets.GIST_SECRET }}
+          gistID: ${{ secrets.GIST_ID }}
+          filename: tests-unit.json
+          label: unit tests
+          message: ${{ steps.unit.outputs.value }}
+          color: ${{ steps.unit.outputs.color }}
+
+      - name: Publish integration test badge
+        if: steps.integration.outputs.value != ''
+        continue-on-error: true
+        uses: schneegans/dynamic-badges-action@v1.9.0
+        with:
+          auth: ${{ secrets.GIST_SECRET }}
+          gistID: ${{ secrets.GIST_ID }}
+          filename: tests-integration.json
+          label: integration tests
+          message: ${{ steps.integration.outputs.value }}
+          color: ${{ steps.integration.outputs.color }}
