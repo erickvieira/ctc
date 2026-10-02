@@ -46,5 +46,5 @@ O `DO UPDATE` é um no-op (reescreve o próprio `updated_at`, preservando o orig
 
 - **Chave global (sem `user_id`)**: colisões entre clientes e vazamento de existência.
 - **Fingerprint só com a chave**: não detecta reuso com payload diferente.
-- **Tabela de idempotência separada**: mais uma escrita/transação para o mesmo garantia que o índice único já dá.
+- **Tabela de idempotência separada**: mais uma escrita/transação para a mesma garantia que o índice único já dá.
 - **`INSERT` + `SELECT` em passos separados**: janela de corrida entre checar e inserir.
