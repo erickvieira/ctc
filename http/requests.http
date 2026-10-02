@@ -1,3 +1,53 @@
+@baseUrl = http://localhost:8080
+@userId = 11111111-1111-1111-1111-111111111111
+@otherUserId = 22222222-2222-2222-2222-222222222222
+@eventId = replace-with-created-event-id
+@reservationId = replace-with-created-reservation-id
+
 ### Health
-GET http://localhost:8080/actuator/health
+GET {{baseUrl}}/actuator/health
 Accept: application/json
+
+### Create event (201 + Location)
+POST {{baseUrl}}/events
+X-User-Id: {{userId}}
+Content-Type: application/json
+
+{
+  "name": "Smoke Event",
+  "startsAt": "2026-10-15T20:00:00Z",
+  "capacity": 3
+}
+
+### Get event (200)
+GET {{baseUrl}}/events/{{eventId}}
+X-User-Id: {{userId}}
+Accept: application/json
+
+### Create reservation (201 first, 200 replay with the same Idempotency-Key)
+POST {{baseUrl}}/events/{{eventId}}/reservations
+X-User-Id: {{userId}}
+Idempotency-Key: 0b6d5f2a-3c1e-4a7b-9f1d-2e3c4b5a6d70
+Content-Type: application/json
+
+{
+  "quantity": 2
+}
+
+### Get reservation as owner (200)
+GET {{baseUrl}}/reservations/{{reservationId}}
+X-User-Id: {{userId}}
+Accept: application/json
+
+### Get reservation as another user (404)
+GET {{baseUrl}}/reservations/{{reservationId}}
+X-User-Id: {{otherUserId}}
+Accept: application/json
+
+### Confirm reservation (204, idempotent)
+POST {{baseUrl}}/reservations/{{reservationId}}/confirmation
+X-User-Id: {{userId}}
+
+### Cancel reservation (204, idempotent; returns the seats)
+DELETE {{baseUrl}}/reservations/{{reservationId}}
+X-User-Id: {{userId}}
