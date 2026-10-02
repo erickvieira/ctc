@@ -29,3 +29,34 @@ get:
         application/problem+json:
           schema:
             $ref: '../schemas/Problem.yaml'
+
+delete:
+  tags: [Reservations]
+  summary: Cancela uma reserva e devolve os ingressos ao evento.
+  description: >-
+    Cancela uma reserva Pendente e devolve os ingressos ao evento. É idempotente: cancelar uma
+    reserva já terminal (Cancelada/Expirada) também responde 204, sem devolver ingressos de novo.
+  operationId: deleteReservation
+  parameters:
+    - $ref: '../api.yaml#/components/parameters/UserIdHeader'
+    - in: path
+      name: id
+      required: true
+      schema:
+        type: string
+        format: uuid
+  responses:
+    '204':
+      description: Reserva cancelada (ou já terminal); idempotente.
+    '400':
+      description: Requisição inválida.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '../schemas/Problem.yaml'
+    '404':
+      description: Reserva não encontrada ou pertencente a outro usuário.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '../schemas/Problem.yaml'

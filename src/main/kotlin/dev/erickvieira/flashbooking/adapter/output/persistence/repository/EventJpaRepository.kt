@@ -25,4 +25,20 @@ interface EventJpaRepository : JpaRepository<EventEntity, UUID> {
 		@Param("quantity") quantity: Int,
 		@Param("now") now: OffsetDateTime,
 	): Int
+
+	@Modifying
+	@Query(
+		value = """
+			UPDATE 	events 
+			SET 	available = available + :amount, 
+					updated_at = :now 
+			WHERE 	id = :id
+			""",
+		nativeQuery = true,
+	)
+	fun release(
+		@Param("id") id: UUID,
+		@Param("amount") amount: Int,
+		@Param("now") now: OffsetDateTime,
+	): Int
 }

@@ -9,6 +9,7 @@ import dev.erickvieira.flashbooking.domain.model.Reservation
 import dev.erickvieira.flashbooking.domain.model.ReservationInsertion
 import dev.erickvieira.flashbooking.domain.model.ReservationStatus
 import dev.erickvieira.flashbooking.domain.model.UserId
+import dev.erickvieira.flashbooking.port.input.CancelReservationUseCase
 import dev.erickvieira.flashbooking.port.input.CreateReservationUseCase
 import dev.erickvieira.flashbooking.port.input.GetReservationUseCase
 import dev.erickvieira.flashbooking.port.output.EventRepository
@@ -26,7 +27,19 @@ class ReservationService(
     private val properties: ReservationProperties,
     private val clock: Clock,
 ) : CreateReservationUseCase,
-    GetReservationUseCase {
+    GetReservationUseCase,
+    CancelReservationUseCase {
+    /**
+     * Cria (ou replay) reserva idempotente. Insert via `NamedParameterJdbcTemplate` = mesma transação
+     * JPA; `tryReserve` sem estoque -> rollback desfaz o insert -> chave não persiste (retry com
+     * estoque liberado cria reserva nova).
+     *
+     * @param command evento, usuário, quantidade e chave de idempotência opcional.
+     * @return `Created` no primeiro insert; `Replayed` quando a chave repete o mesmo payload.
+     * @throws EventNotFoundException evento inexistente.
+     * @throws IdempotencyConflictException chave reusada com payload diferente.
+     * @throws EventSoldOutException sem disponibilidade (rollback total).
+     */
     @Transactional
     override fun create(command: CreateReservationCommand): ReservationInsertion {
         eventRepository.findById(id = command.eventId) ?: throw EventNotFoundException(id = command.eventId)
@@ -42,11 +55,6 @@ class ReservationService(
                 createdAt = now,
                 updatedAt = now,
             )
-        // O insert via NamedParameterJdbcTemplate participa da transação JPA porque usa a mesma
-        // DataSource; se o tryReserve falhar abaixo (sold out), o rollback desfaz o insert idempotente
-        // (ver ReservationApiIntegrationTest: "a sold-out attempt with an idempotency key is not replayed").
-        // Como a chave não fica persistida num sold-out, um retry com a mesma chave — depois que a
-        // capacidade for liberada — cria uma reserva nova (a tentativa que falhou não "queima" a chave).
         return when (
             val insertion =
                 reservationRepository.insertIdempotent(
@@ -66,4 +74,23 @@ class ReservationService(
 
     override fun getByIdAndUserId(id: UUID, userId: UserId): Reservation =
         reservationRepository.findByIdAndUserId(id = id, userId = userId) ?: throw ReservationNotFoundException(id = id)
+
+    /**
+     * Cancela reserva do usuário e devolve ingressos. Idempotente: reserva terminal (ou 2ª chamada)
+     * não transiciona nem devolve de novo.
+     *
+     * @param id id da reserva.
+     * @param userId dono da reserva.
+     * @throws ReservationNotFoundException reserva inexistente ou de outro usuário.
+     */
+    @Transactional
+    override fun cancel(id: UUID, userId: UserId) {
+        reservationRepository.findByIdAndUserId(id = id, userId = userId)
+            ?: throw ReservationNotFoundException(id = id)
+        val now = OffsetDateTime.now(clock)
+        val cancelled = reservationRepository.cancelIfPending(id = id, userId = userId, now = now)
+        if (cancelled != null) {
+            eventRepository.release(eventId = cancelled.eventId, amount = cancelled.quantity.value, now = now)
+        }
+    }
 }

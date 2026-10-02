@@ -15,9 +15,11 @@ import dev.erickvieira.flashbooking.domain.model.UserId
 import dev.erickvieira.flashbooking.fixtures.fake
 import dev.erickvieira.flashbooking.port.output.EventRepository
 import dev.erickvieira.flashbooking.port.output.ReservationRepository
+import io.mockk.Runs
 import io.mockk.checkUnnecessaryStub
 import io.mockk.confirmVerified
 import io.mockk.every
+import io.mockk.just
 import io.mockk.mockk
 import io.mockk.verify
 import org.assertj.core.api.Assertions.assertThat
@@ -168,6 +170,53 @@ class ReservationServiceTest {
 			every { reservationRepository.findByIdAndUserId(id = id, userId = userId) } returns null
 
 			assertThrows<ReservationNotFoundException> { service.getByIdAndUserId(id = id, userId = userId) }
+
+			verify(exactly = 1) { reservationRepository.findByIdAndUserId(id = id, userId = userId) }
+		}
+	}
+
+	@Nested
+	@DisplayName("cancel")
+	inner class Cancel {
+		@Test
+		fun `cancels a pending reservation and releases the seats`() {
+			val reservation = Reservation.fake(status = ReservationStatus.PENDING)
+			val cancelled = reservation.copy(status = ReservationStatus.CANCELLED)
+			every { reservationRepository.findByIdAndUserId(id = reservation.id, userId = reservation.userId) } returns reservation
+			every {
+				reservationRepository.cancelIfPending(id = reservation.id, userId = reservation.userId, now = fixedNow)
+			} returns cancelled
+			every { eventRepository.release(eventId = cancelled.eventId, amount = cancelled.quantity.value, now = fixedNow) } just Runs
+
+			service.cancel(id = reservation.id, userId = reservation.userId)
+
+			verify(exactly = 1) { reservationRepository.findByIdAndUserId(id = reservation.id, userId = reservation.userId) }
+			verify(exactly = 1) { reservationRepository.cancelIfPending(id = reservation.id, userId = reservation.userId, now = fixedNow) }
+			verify(exactly = 1) { eventRepository.release(eventId = cancelled.eventId, amount = cancelled.quantity.value, now = fixedNow) }
+		}
+
+		@Test
+		fun `does not release seats again when the reservation is already terminal`() {
+			val reservation = Reservation.fake(status = ReservationStatus.EXPIRED)
+			every { reservationRepository.findByIdAndUserId(id = reservation.id, userId = reservation.userId) } returns reservation
+			every {
+				reservationRepository.cancelIfPending(id = reservation.id, userId = reservation.userId, now = fixedNow)
+			} returns null
+
+			service.cancel(id = reservation.id, userId = reservation.userId)
+
+			verify(exactly = 1) { reservationRepository.findByIdAndUserId(id = reservation.id, userId = reservation.userId) }
+			verify(exactly = 1) { reservationRepository.cancelIfPending(id = reservation.id, userId = reservation.userId, now = fixedNow) }
+			verify(exactly = 0) { eventRepository.release(eventId = any(), amount = any(), now = any()) }
+		}
+
+		@Test
+		fun `throws when the reservation does not exist or belongs to another user`() {
+			val id = UUID.randomUUID()
+			val userId = UserId.fake()
+			every { reservationRepository.findByIdAndUserId(id = id, userId = userId) } returns null
+
+			assertThrows<ReservationNotFoundException> { service.cancel(id = id, userId = userId) }
 
 			verify(exactly = 1) { reservationRepository.findByIdAndUserId(id = id, userId = userId) }
 		}

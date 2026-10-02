@@ -89,4 +89,19 @@ class EventPersistenceAdapterUnitTest {
 			verify(exactly = 1) { jpaRepository.tryReserve(id = eventId, quantity = 2, now = now) }
 		}
 	}
+
+	@Nested
+	@DisplayName("release")
+	inner class Release {
+		@Test
+		fun `delegates the release to the repository`() {
+			val eventId = UUID.randomUUID()
+			val now = OffsetDateTime.parse("2026-01-01T12:00:00Z")
+			every { jpaRepository.release(id = eventId, amount = 2, now = now) } returns 1
+
+			adapter.release(eventId = eventId, amount = 2, now = now)
+
+			verify(exactly = 1) { jpaRepository.release(id = eventId, amount = 2, now = now) }
+		}
+	}
 }

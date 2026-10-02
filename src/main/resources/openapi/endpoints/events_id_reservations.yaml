@@ -8,8 +8,10 @@ post:
       name: Idempotency-Key
       required: false
       description: >-
-        Chave de idempotência opcional. Reexecutar a mesma chave com o mesmo payload retorna a
-        reserva original (200); reutilizar a chave com payload diferente retorna 409 IDEMPOTENCY_CONFLICT.
+        Chave de idempotência opcional, sem TTL nem expurgo. Reexecutar a mesma chave com o mesmo
+        payload retorna a reserva original (200) — que pode já estar em estado terminal
+        (Expirada/Cancelada), então o cliente deve inspecionar o campo `status`. Reutilizar a chave
+        com payload diferente (outro evento, quantidade ou usuário) retorna 409 IDEMPOTENCY_CONFLICT.
       schema:
         type: string
     - in: path

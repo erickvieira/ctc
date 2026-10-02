@@ -15,4 +15,10 @@ interface EventRepository {
 		quantity: Quantity,
 		now: OffsetDateTime,
 	): Boolean
+
+	fun release(
+		eventId: UUID,
+		amount: Int,
+		now: OffsetDateTime,
+	)
 }

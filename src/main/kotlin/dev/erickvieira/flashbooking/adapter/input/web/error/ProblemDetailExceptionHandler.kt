@@ -160,13 +160,15 @@ class ProblemDetailExceptionHandler(
     ): ResponseEntity<ProblemDetail> =
         problem(status = HttpStatus.NOT_FOUND, code = "NOT_FOUND", detail = "resource not found", request = request)
 
+    /**
+     * CHECK/FK = invariante interna, não deveria disparar. Loga o constraint do Postgres e responde
+     * 500 genérico.
+     */
     @ExceptionHandler(DataIntegrityViolationException::class)
     fun handleDataIntegrity(
         exception: DataIntegrityViolationException,
         request: HttpServletRequest,
     ): ResponseEntity<ProblemDetail> {
-        // CHECK/FK violations are internal invariants that should never fire; log the constraint
-        // name Postgres assigned (inside the message) and return a generic 500.
         log.error("data integrity violation: {}", exception.mostSpecificCause.message, exception)
         return problem(
             status = HttpStatus.INTERNAL_SERVER_ERROR,

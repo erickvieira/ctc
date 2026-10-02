@@ -13,6 +13,7 @@ import org.springframework.boot.testcontainers.service.connection.ServiceConnect
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
 import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.header
@@ -264,6 +265,56 @@ class ReservationApiIntegrationTest {
 			)
 			.andExpect(status().isConflict)
 			.andExpect(jsonPath("$.code").value("EVENT_SOLD_OUT"))
+	}
+
+	@Test
+	fun `DELETE cancels a pending reservation and returns the seats`() {
+		val eventId = createEvent(capacity = 2)
+		val location = reserve(eventId, userId, "2")
+
+		mockMvc
+			.perform(delete(location).header(UserIdFilter.USER_ID_HEADER, userId))
+			.andExpect(status().isNoContent)
+
+		mockMvc
+			.perform(get(location).header(UserIdFilter.USER_ID_HEADER, userId))
+			.andExpect(status().isOk)
+			.andExpect(jsonPath("$.status").value("CANCELLED"))
+
+		reserve(eventId, userId, "2")
+	}
+
+	@Test
+	fun `DELETE is idempotent`() {
+		val eventId = createEvent(capacity = 2)
+		val location = reserve(eventId, userId, "1")
+
+		mockMvc
+			.perform(delete(location).header(UserIdFilter.USER_ID_HEADER, userId))
+			.andExpect(status().isNoContent)
+
+		mockMvc
+			.perform(delete(location).header(UserIdFilter.USER_ID_HEADER, userId))
+			.andExpect(status().isNoContent)
+	}
+
+	@Test
+	fun `DELETE a reservation from another user is 404`() {
+		val eventId = createEvent(capacity = 2)
+		val location = reserve(eventId, userId, "1")
+
+		mockMvc
+			.perform(delete(location).header(UserIdFilter.USER_ID_HEADER, otherUserId))
+			.andExpect(status().isNotFound)
+			.andExpect(jsonPath("$.code").value("RESERVATION_NOT_FOUND"))
+	}
+
+	@Test
+	fun `DELETE an unknown reservation is 404`() {
+		mockMvc
+			.perform(delete("/reservations/${UUID.randomUUID()}").header(UserIdFilter.USER_ID_HEADER, userId))
+			.andExpect(status().isNotFound)
+			.andExpect(jsonPath("$.code").value("RESERVATION_NOT_FOUND"))
 	}
 
 	private fun createEvent(capacity: Int): UUID =

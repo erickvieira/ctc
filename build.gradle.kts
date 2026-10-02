@@ -24,20 +24,15 @@ repositories {
     mavenCentral()
 }
 
-// Spring Boot 4 no longer manages Testcontainers module versions, so import their BOM.
 dependencyManagement {
     imports {
         mavenBom("org.testcontainers:testcontainers-bom:1.21.4")
     }
 }
 
-// The OpenAPI Gradle plugin stopped at 7.14.0, which predates `useSpringBoot4`/`useJackson3`.
-// We therefore drive the 7.25.0 CLI (same codegen) through a plain JavaExec task.
 val openApiGenerator by configurations.creating
 val generatedOpenApiDir = layout.buildDirectory.dir("generated/openapi")
 
-// The `info.solidsoft.pitest` plugin is incompatible with Gradle 9, so mutation testing runs the
-// PIT command line directly through a JavaExec task (`mutationTest`).
 val pitestTool by configurations.creating
 
 dependencies {
@@ -48,7 +43,6 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("org.flywaydb:flyway-core")
     implementation("org.flywaydb:flyway-database-postgresql")
-    // Spring Boot 4 split auto-configuration into per-technology modules.
     implementation("org.springframework.boot:spring-boot-flyway")
     implementation("org.jetbrains.kotlin:kotlin-reflect")
     implementation("tools.jackson.module:jackson-module-kotlin")
@@ -84,13 +78,9 @@ kotlin {
     }
 }
 
-// `integrationTest` is a second source set that needs live infrastructure (Testcontainers),
-// so it stays out of `test`/`check` and only runs through `verify`.
 sourceSets {
     main {
         kotlin.srcDir(generatedOpenApiDir.map { it.dir("src/main/kotlin") })
-        // The springdoc provider emits a configuration bean outside our package, which is never
-        // component-scanned; drop it instead of carrying dead code.
         kotlin.exclude("org/openapitools/**")
     }
     create("integrationTest") {
@@ -169,9 +159,7 @@ jacoco {
 
 val jacocoCoverageExclusions =
     listOf(
-        // Framework bootstrap, never exercised by tests.
         "dev/erickvieira/flashbooking/FlashBookingApplication*",
-        // Code generated from the OpenAPI contract (reproduced from the spec, not hand-written).
         "dev/erickvieira/flashbooking/adapter/input/web/api/**",
         "dev/erickvieira/flashbooking/adapter/input/web/model/**",
     )
@@ -215,8 +203,6 @@ tasks.check {
     dependsOn(tasks.jacocoTestCoverageVerification)
 }
 
-// Mutation testing focuses on the pure logic (no framework/adapters) to stay fast and stable.
-// The pipeline is separate from `check` and only joined through `verify`.
 val mutationTest =
     tasks.register<JavaExec>("mutationTest") {
         group = "verification"

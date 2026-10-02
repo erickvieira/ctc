@@ -29,12 +29,14 @@ import java.time.OffsetDateTime
 import java.util.UUID
 
 class ReservationPersistenceAdapterUnitTest {
+    private val fixedNow = OffsetDateTime.parse("2026-01-01T12:00:00Z")
     private val namedParameterJdbcTemplate = mockk<NamedParameterJdbcTemplate>()
     private val jpaRepository = mockk<ReservationJpaRepository>()
-    private val adapter = ReservationPersistenceAdapter(
-        namedParameterJdbcTemplate = namedParameterJdbcTemplate,
-        jpaRepository = jpaRepository
-    )
+    private val adapter =
+        ReservationPersistenceAdapter(
+            namedParameterJdbcTemplate = namedParameterJdbcTemplate,
+            jpaRepository = jpaRepository,
+        )
 
     @AfterEach
     fun enforceStrictVerification() {
@@ -107,9 +109,10 @@ class ReservationPersistenceAdapterUnitTest {
                 )
             } returns emptyList()
 
-            val exception = assertThrows<IdempotencyConflictException> {
-                adapter.insertIdempotent(reservation = reservation, idempotency = idempotency)
-            }
+            val exception =
+                assertThrows<IdempotencyConflictException> {
+                    adapter.insertIdempotent(reservation = reservation, idempotency = idempotency)
+                }
 
             assertThat(exception.idempotencyKey).isEqualTo("key-1")
             verify(exactly = 1) {
@@ -144,42 +147,56 @@ class ReservationPersistenceAdapterUnitTest {
                 )
             }
         }
+    }
+
+    @Nested
+    @DisplayName("cancelIfPending")
+    inner class CancelIfPending {
+        @Test
+        fun `returns the cancelled reservation when the transition happens`() {
+            val reservation = Reservation.fake(status = ReservationStatus.CANCELLED)
+            every {
+                namedParameterJdbcTemplate.query(any(), any<SqlParameterSource>(), any<RowMapper<Reservation>>())
+            } returns listOf(reservation)
+
+            val result = adapter.cancelIfPending(id = reservation.id, userId = reservation.userId, now = fixedNow)
+
+            assertThat(result).usingRecursiveComparison().isEqualTo(reservation)
+            verify(exactly = 1) {
+                namedParameterJdbcTemplate.query(any(), any<SqlParameterSource>(), any<RowMapper<Reservation>>())
+            }
+        }
 
         @Test
-        fun `maps a result set into a reservation and the inserted flag`() {
-            val id = UUID.randomUUID()
-            val eventId = UUID.randomUUID()
-            val userId = UUID.randomUUID()
-            val now = OffsetDateTime.parse("2026-01-01T12:00:00Z")
-            val rs = mockk<ResultSet>()
-            every { rs.getObject("id", UUID::class.java) } returns id
-            every { rs.getObject("event_id", UUID::class.java) } returns eventId
-            every { rs.getObject("user_id", UUID::class.java) } returns userId
-            every { rs.getInt("quantity") } returns 3
-            every { rs.getString("status") } returns "PENDING"
-            every { rs.getObject("expires_at", OffsetDateTime::class.java) } returns now
-            every { rs.getObject("created_at", OffsetDateTime::class.java) } returns now
-            every { rs.getObject("updated_at", OffsetDateTime::class.java) } returns now
-            every { rs.getBoolean("inserted") } returns true
+        fun `returns null when no row transitions`() {
+            every {
+                namedParameterJdbcTemplate.query(any(), any<SqlParameterSource>(), any<RowMapper<Reservation>>())
+            } returns emptyList()
 
-			val row = ReservationPersistenceAdapter.INSERT_ROW_MAPPER.mapRow(rs, 0)
+            assertThat(adapter.cancelIfPending(id = UUID.randomUUID(), userId = UserId.fake(), now = fixedNow)).isNull()
+            verify(exactly = 1) {
+                namedParameterJdbcTemplate.query(any(), any<SqlParameterSource>(), any<RowMapper<Reservation>>())
+            }
+        }
+    }
 
-			val expected =
-				ReservationPersistenceAdapter.InsertRow(
-					reservation =
-						Reservation.fake(
-							id = id,
-							eventId = eventId,
-							userId = UserId(value = userId),
-							quantity = Quantity.fromStorage(value = 3),
-							status = ReservationStatus.PENDING,
-							expiresAt = now,
-							createdAt = now,
-							updatedAt = now,
-						),
-					inserted = true,
-				)
-			assertThat(row).usingRecursiveComparison().isEqualTo(expected)
+    @Nested
+    @DisplayName("expirePending")
+    inner class ExpirePending {
+        @Test
+        fun `returns the expired reservations`() {
+            val first = Reservation.fake(status = ReservationStatus.EXPIRED)
+            val second = Reservation.fake(status = ReservationStatus.EXPIRED)
+            every {
+                namedParameterJdbcTemplate.query(any(), any<SqlParameterSource>(), any<RowMapper<Reservation>>())
+            } returns listOf(first, second)
+
+            val result = adapter.expirePending(now = fixedNow, limit = 100)
+
+            assertThat(result).usingRecursiveComparison().isEqualTo(listOf(first, second))
+            verify(exactly = 1) {
+                namedParameterJdbcTemplate.query(any(), any<SqlParameterSource>(), any<RowMapper<Reservation>>())
+            }
         }
     }
 
@@ -189,23 +206,13 @@ class ReservationPersistenceAdapterUnitTest {
         @Test
         fun `returns the mapped reservation when present`() {
             val reservation = Reservation.fake()
-            val entity = ReservationPersistenceMapperImpl.toEntity(reservation)
-            every {
-                jpaRepository.findFirstByIdAndUserId(
-                    id = reservation.id,
-                    userId = reservation.userId.value
-                )
-            } returns entity
+            val entity = ReservationPersistenceMapperImpl.toEntity(reservation = reservation)
+            every { jpaRepository.findFirstByIdAndUserId(id = reservation.id, userId = reservation.userId.value) } returns entity
 
             assertThat(adapter.findByIdAndUserId(id = reservation.id, userId = reservation.userId))
                 .usingRecursiveComparison()
                 .isEqualTo(reservation)
-            verify(exactly = 1) {
-                jpaRepository.findFirstByIdAndUserId(
-                    id = reservation.id,
-                    userId = reservation.userId.value
-                )
-            }
+            verify(exactly = 1) { jpaRepository.findFirstByIdAndUserId(id = reservation.id, userId = reservation.userId.value) }
         }
 
         @Test
@@ -216,6 +223,77 @@ class ReservationPersistenceAdapterUnitTest {
 
             assertThat(adapter.findByIdAndUserId(id = id, userId = userId)).isNull()
             verify(exactly = 1) { jpaRepository.findFirstByIdAndUserId(id = id, userId = userId.value) }
+        }
+    }
+
+    @Nested
+    @DisplayName("rowMapper")
+    inner class RowMapperTest {
+        @Test
+        fun `INSERT_ROW_MAPPER maps a result set into a reservation and the inserted flag`() {
+            val id = UUID.randomUUID()
+            val eventId = UUID.randomUUID()
+            val userId = UUID.randomUUID()
+            val rs = mockk<ResultSet>()
+            every { rs.getObject("id", UUID::class.java) } returns id
+            every { rs.getObject("event_id", UUID::class.java) } returns eventId
+            every { rs.getObject("user_id", UUID::class.java) } returns userId
+            every { rs.getInt("quantity") } returns 3
+            every { rs.getString("status") } returns "PENDING"
+            every { rs.getObject("expires_at", OffsetDateTime::class.java) } returns fixedNow
+            every { rs.getObject("created_at", OffsetDateTime::class.java) } returns fixedNow
+            every { rs.getObject("updated_at", OffsetDateTime::class.java) } returns fixedNow
+            every { rs.getBoolean("inserted") } returns true
+
+            val row = ReservationPersistenceAdapter.INSERT_ROW_MAPPER.mapRow(rs, 0)
+
+            val expected =
+                ReservationPersistenceAdapter.InsertRow(
+                    reservation =
+                        Reservation.fake(
+                            id = id,
+                            eventId = eventId,
+                            userId = UserId(value = userId),
+                            quantity = Quantity.fromStorage(value = 3),
+                            status = ReservationStatus.PENDING,
+                            expiresAt = fixedNow,
+                            createdAt = fixedNow,
+                            updatedAt = fixedNow,
+                        ),
+                    inserted = true,
+                )
+            assertThat(row).usingRecursiveComparison().isEqualTo(expected)
+        }
+
+        @Test
+        fun `RESERVATION_ROW_MAPPER maps a result set into a reservation`() {
+            val id = UUID.randomUUID()
+            val eventId = UUID.randomUUID()
+            val userId = UUID.randomUUID()
+            val rs = mockk<ResultSet>()
+            every { rs.getObject("id", UUID::class.java) } returns id
+            every { rs.getObject("event_id", UUID::class.java) } returns eventId
+            every { rs.getObject("user_id", UUID::class.java) } returns userId
+            every { rs.getInt("quantity") } returns 3
+            every { rs.getString("status") } returns "EXPIRED"
+            every { rs.getObject("expires_at", OffsetDateTime::class.java) } returns fixedNow
+            every { rs.getObject("created_at", OffsetDateTime::class.java) } returns fixedNow
+            every { rs.getObject("updated_at", OffsetDateTime::class.java) } returns fixedNow
+
+            val row = ReservationPersistenceAdapter.RESERVATION_ROW_MAPPER.mapRow(rs, 0)
+
+            val expected =
+                Reservation.fake(
+                    id = id,
+                    eventId = eventId,
+                    userId = UserId(value = userId),
+                    quantity = Quantity.fromStorage(value = 3),
+                    status = ReservationStatus.EXPIRED,
+                    expiresAt = fixedNow,
+                    createdAt = fixedNow,
+                    updatedAt = fixedNow,
+                )
+            assertThat(row).usingRecursiveComparison().isEqualTo(expected)
         }
     }
 }

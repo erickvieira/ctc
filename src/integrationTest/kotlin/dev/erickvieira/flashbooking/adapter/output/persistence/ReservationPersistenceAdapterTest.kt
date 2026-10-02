@@ -12,6 +12,7 @@ import dev.erickvieira.flashbooking.fixtures.fake
 import dev.erickvieira.flashbooking.port.output.EventRepository
 import dev.erickvieira.flashbooking.port.output.ReservationRepository
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.springframework.beans.factory.annotation.Autowired
@@ -32,6 +33,8 @@ import java.util.concurrent.TimeUnit
 @Testcontainers
 class ReservationPersistenceAdapterTest {
     companion object {
+        const val LOCK_CONTENTION_WAIT_MILLIS = 300L
+
         @Container
         @ServiceConnection
         @JvmStatic
@@ -102,6 +105,10 @@ class ReservationPersistenceAdapterTest {
         }
     }
 
+    /**
+     * T1 insere a chave (sem commit) e segura; T2 (mesma chave) bloqueia no lock. T1 aborta -> T2
+     * precisa ser `Created` (não `Replayed`) e não pular o `tryReserve`.
+     */
     @Test
     fun `an aborted concurrent insert still yields Created for a second attempt of the same key`() {
         val event = eventRepository.save(event = Event.fake(capacity = Capacity.of(value = 10)))
@@ -118,15 +125,11 @@ class ReservationPersistenceAdapterTest {
         try {
             val firstTx = CompletableFuture.runAsync(
                 {
-                    try {
-                        transactionTemplate.executeWithoutResult {
-                            reservationRepository.insertIdempotent(reservation = first, idempotency = idempotency)
-                            firstInserted.countDown()
-                            abort.await()
-                            throw IllegalStateException("forced rollback")
-                        }
-                    } catch (_: IllegalStateException) {
-                        // rollback esperado da primeira transação
+                    transactionTemplate.executeWithoutResult {
+                        reservationRepository.insertIdempotent(reservation = first, idempotency = idempotency)
+                        firstInserted.countDown()
+                        abort.await()
+                        throw IllegalStateException("forced rollback")
                     }
                 },
                 executor,
@@ -141,16 +144,20 @@ class ReservationPersistenceAdapterTest {
                 executor,
             )
 
-            // dá tempo para a segunda transação alcançar o lock da linha não-comitada da primeira
-            Thread.sleep(300)
+            awaitLockContention()
             abort.countDown()
 
             val insertion = secondTx.get(10, TimeUnit.SECONDS)
-            firstTx.get(10, TimeUnit.SECONDS)
+            assertThatThrownBy { firstTx.get(10, TimeUnit.SECONDS) }
+                .hasCauseInstanceOf(IllegalStateException::class.java)
 
             assertThat(insertion).isInstanceOf(ReservationInsertion.Created::class.java)
         } finally {
             executor.shutdownNow()
         }
+    }
+
+    private fun awaitLockContention() {
+        Thread.sleep(LOCK_CONTENTION_WAIT_MILLIS)
     }
 }

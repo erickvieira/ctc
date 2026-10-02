@@ -8,6 +8,7 @@ import dev.erickvieira.flashbooking.domain.model.Reservation
 import dev.erickvieira.flashbooking.domain.model.ReservationInsertion
 import dev.erickvieira.flashbooking.domain.model.UserId
 import dev.erickvieira.flashbooking.fixtures.fake
+import dev.erickvieira.flashbooking.port.input.CancelReservationUseCase
 import dev.erickvieira.flashbooking.port.input.CreateReservationUseCase
 import dev.erickvieira.flashbooking.port.input.GetReservationUseCase
 import io.mockk.checkUnnecessaryStub
@@ -27,13 +28,20 @@ import java.util.UUID
 class ReservationControllerTest {
 	private val createReservationUseCase = mockk<CreateReservationUseCase>()
 	private val getReservationUseCase = mockk<GetReservationUseCase>()
+	private val cancelReservationUseCase = mockk<CancelReservationUseCase>()
 	private val properties = ReservationProperties(ttl = Duration.ofMinutes(10), maxPerReservation = 10)
-	private val controller = ReservationController(createReservationUseCase = createReservationUseCase, getReservationUseCase = getReservationUseCase, properties = properties)
+	private val controller =
+		ReservationController(
+			createReservationUseCase = createReservationUseCase,
+			getReservationUseCase = getReservationUseCase,
+			cancelReservationUseCase = cancelReservationUseCase,
+			properties = properties,
+		)
 
 	@AfterEach
 	fun enforceStrictVerification() {
-		confirmVerified(createReservationUseCase, getReservationUseCase)
-		checkUnnecessaryStub(createReservationUseCase, getReservationUseCase)
+		confirmVerified(createReservationUseCase, getReservationUseCase, cancelReservationUseCase)
+		checkUnnecessaryStub(createReservationUseCase, getReservationUseCase, cancelReservationUseCase)
 	}
 
 	@Nested
@@ -100,6 +108,22 @@ class ReservationControllerTest {
 			assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
 			assertThat(response.body).usingRecursiveComparison().isEqualTo(ReservationApiMapperImpl.toResponse(reservation = reservation))
 			verify(exactly = 1) { getReservationUseCase.getByIdAndUserId(id = reservation.id, userId = userId) }
+		}
+	}
+
+	@Nested
+	@DisplayName("deleteReservation")
+	inner class DeleteReservation {
+		@Test
+		fun `cancels the reservation and returns 204`() {
+			val userId = UserId.fake()
+			val reservationId = UUID.randomUUID()
+			every { cancelReservationUseCase.cancel(id = reservationId, userId = userId) } returns Unit
+
+			val response = controller.deleteReservation(xUserId = userId.value, id = reservationId)
+
+			assertThat(response.statusCode).isEqualTo(HttpStatus.NO_CONTENT)
+			verify(exactly = 1) { cancelReservationUseCase.cancel(id = reservationId, userId = userId) }
 		}
 	}
 }

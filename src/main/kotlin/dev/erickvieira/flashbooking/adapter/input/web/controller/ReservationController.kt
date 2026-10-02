@@ -7,6 +7,7 @@ import dev.erickvieira.flashbooking.adapter.input.web.model.Reservation as Reser
 import dev.erickvieira.flashbooking.config.ReservationProperties
 import dev.erickvieira.flashbooking.domain.model.ReservationInsertion
 import dev.erickvieira.flashbooking.domain.model.UserId
+import dev.erickvieira.flashbooking.port.input.CancelReservationUseCase
 import dev.erickvieira.flashbooking.port.input.CreateReservationUseCase
 import dev.erickvieira.flashbooking.port.input.GetReservationUseCase
 import org.springframework.http.ResponseEntity
@@ -18,6 +19,7 @@ import java.util.UUID
 class ReservationController(
     private val createReservationUseCase: CreateReservationUseCase,
     private val getReservationUseCase: GetReservationUseCase,
+    private val cancelReservationUseCase: CancelReservationUseCase,
     private val properties: ReservationProperties,
 ) : ReservationsApi {
     override fun createReservation(
@@ -50,4 +52,12 @@ class ReservationController(
         getReservationUseCase.getByIdAndUserId(id = id, userId = UserId(value = xUserId))
             .let { ReservationApiMapperImpl.toResponse(reservation = it) }
             .let { ResponseEntity.ok(it) }
+
+    override fun deleteReservation(
+        xUserId: UUID,
+        id: UUID,
+    ): ResponseEntity<Unit> {
+        cancelReservationUseCase.cancel(id = id, userId = UserId(value = xUserId))
+        return ResponseEntity.noContent().build()
+    }
 }

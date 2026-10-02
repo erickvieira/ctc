@@ -27,4 +27,12 @@ class EventPersistenceAdapter(
 		quantity: Quantity,
 		now: OffsetDateTime,
 	): Boolean = jpaRepository.tryReserve(id = eventId, quantity = quantity.value, now = now) > 0
+
+	override fun release(
+		eventId: UUID,
+		amount: Int,
+		now: OffsetDateTime,
+	) {
+		jpaRepository.release(id = eventId, amount = amount, now = now)
+	}
 }
