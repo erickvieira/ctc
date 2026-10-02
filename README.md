@@ -125,6 +125,25 @@ também [tokensave](https://tokensave.dev/), [graphify](https://github.com/Graph
 e [headroom](https://github.com/headroomlabs-ai/headroom) para ajudar a minimizar o consumo de tokens e,
 consequentemente, baratear a implementação.
 
+### Metodologia
+
+Para melhorar a previsibilidade e adequação do código gerado pelo agente foram utilizadas as seguintes skills:
+
+- [grill-me](https://github.com/mattpocock/skills/tree/main/skills/productivity/grill-me)
+  e [grill-with-docs](https://github.com/mattpocock/skills/blob/main/skills/engineering/grill-with-docs/SKILL.md) na
+  etapa de planejamento/refinamento para mitigar a tendência dos agentes de preencher as "lacunas" de entendimento com
+  "achismos"/alucinações. Vale a pena dizer que o artefato final produzido nessa etapa pode ser considerado
+  um [SDD](https://jjeanjacques10.medium.com/spec-driven-development-a-abordagem-que-melhorou-meu-desenvolvimento-com-ia-1fc423707c89)
+  e foi o que guiou o agente durante todo o ciclo de vida de desenvolvimento.
+- [tdd](https://github.com/obra/superpowers/blob/main/skills/test-driven-development/SKILL.md) na etapa de implementação
+  para forçar o agente a respeitar os guardrails de qualidade impostos e reduzir as chances de gerar código inadequado
+  às expectativas.
+
+> Obs.: Optei pela simplicidade nesse caso por se tratar de um escopo relativamente pequeno e principalmente para evitar
+> inflar muito os custos com tokens. Numa situação de código produtivo real eu teria advogado em favor do uso de algo
+> mais sofisticado como [superpowers](https://github.com/obra/superpowers). Aqui eu decidi ir pela opção de menor custo
+> que ainda garante um bom nível de confiabilidade independente do modelo/agente usado.
+
 ## Evoluções futuras
 
 - Observabilidade (perfil `observability`: OpenTelemetry → Prometheus/Loki/Tempo → Grafana, dashboard RED).
