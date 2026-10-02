@@ -5,15 +5,18 @@ import dev.erickvieira.flashbooking.domain.command.CreateReservationCommand
 import dev.erickvieira.flashbooking.domain.exception.EventNotFoundException
 import dev.erickvieira.flashbooking.domain.exception.EventSoldOutException
 import dev.erickvieira.flashbooking.domain.exception.ReservationNotFoundException
+import dev.erickvieira.flashbooking.domain.model.EventAvailabilityChanged
 import dev.erickvieira.flashbooking.domain.model.Reservation
 import dev.erickvieira.flashbooking.domain.model.ReservationInsertion
 import dev.erickvieira.flashbooking.domain.model.ReservationStatus
 import dev.erickvieira.flashbooking.domain.model.UserId
 import dev.erickvieira.flashbooking.port.input.CancelReservationUseCase
+import dev.erickvieira.flashbooking.port.input.ConfirmReservationUseCase
 import dev.erickvieira.flashbooking.port.input.CreateReservationUseCase
 import dev.erickvieira.flashbooking.port.input.GetReservationUseCase
-import dev.erickvieira.flashbooking.port.output.EventRepository
-import dev.erickvieira.flashbooking.port.output.ReservationRepository
+import dev.erickvieira.flashbooking.port.output.EventPersistencePort
+import dev.erickvieira.flashbooking.port.output.ReservationPersistencePort
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Clock
@@ -22,17 +25,19 @@ import java.util.UUID
 
 @Service
 class ReservationService(
-    private val eventRepository: EventRepository,
-    private val reservationRepository: ReservationRepository,
+    private val eventPersistencePort: EventPersistencePort,
+    private val reservationPersistencePort: ReservationPersistencePort,
+    private val publisher: ApplicationEventPublisher,
     private val properties: ReservationProperties,
     private val clock: Clock,
 ) : CreateReservationUseCase,
     GetReservationUseCase,
-    CancelReservationUseCase {
+    CancelReservationUseCase,
+    ConfirmReservationUseCase {
     /**
      * Cria (ou replay) reserva idempotente. Insert via `NamedParameterJdbcTemplate` = mesma transação
      * JPA; `tryReserve` sem estoque -> rollback desfaz o insert -> chave não persiste (retry com
-     * estoque liberado cria reserva nova).
+     * estoque liberado cria reserva nova). Publica [EventAvailabilityChanged] para invalidar o cache.
      *
      * @param command evento, usuário, quantidade e chave de idempotência opcional.
      * @return `Created` no primeiro insert; `Replayed` quando a chave repete o mesmo payload.
@@ -42,7 +47,7 @@ class ReservationService(
      */
     @Transactional
     override fun create(command: CreateReservationCommand): ReservationInsertion {
-        eventRepository.findById(id = command.eventId) ?: throw EventNotFoundException(id = command.eventId)
+        eventPersistencePort.findById(id = command.eventId) ?: throw EventNotFoundException(id = command.eventId)
         val now = OffsetDateTime.now(clock)
         val reservation =
             Reservation(
@@ -57,27 +62,35 @@ class ReservationService(
             )
         return when (
             val insertion =
-                reservationRepository.insertIdempotent(
+                reservationPersistencePort.insertIdempotent(
                     reservation = reservation,
                     idempotency = command.idempotency,
                 )
         ) {
             is ReservationInsertion.Created -> {
-                if (!eventRepository.tryReserve(eventId = command.eventId, quantity = command.quantity, now = now)) {
+                if (!eventPersistencePort.tryReserve(
+                        eventId = command.eventId,
+                        quantity = command.quantity,
+                        now = now
+                    )
+                ) {
                     throw EventSoldOutException(eventId = command.eventId)
                 }
+                publisher.publishEvent(EventAvailabilityChanged(eventId = command.eventId))
                 insertion
             }
+
             is ReservationInsertion.Replayed -> insertion
         }
     }
 
     override fun getByIdAndUserId(id: UUID, userId: UserId): Reservation =
-        reservationRepository.findByIdAndUserId(id = id, userId = userId) ?: throw ReservationNotFoundException(id = id)
+        reservationPersistencePort.findByIdAndUserId(id = id, userId = userId)
+            ?: throw ReservationNotFoundException(id = id)
 
     /**
      * Cancela reserva do usuário e devolve ingressos. Idempotente: reserva terminal (ou 2ª chamada)
-     * não transiciona nem devolve de novo.
+     * não transiciona nem devolve de novo. Na transição, publica [EventAvailabilityChanged].
      *
      * @param id id da reserva.
      * @param userId dono da reserva.
@@ -85,12 +98,28 @@ class ReservationService(
      */
     @Transactional
     override fun cancel(id: UUID, userId: UserId) {
-        reservationRepository.findByIdAndUserId(id = id, userId = userId)
+        reservationPersistencePort.findByIdAndUserId(id = id, userId = userId)
             ?: throw ReservationNotFoundException(id = id)
         val now = OffsetDateTime.now(clock)
-        val cancelled = reservationRepository.cancelIfPending(id = id, userId = userId, now = now)
+        val cancelled = reservationPersistencePort.cancelIfCancellable(id = id, userId = userId, now = now)
         if (cancelled != null) {
-            eventRepository.release(eventId = cancelled.eventId, amount = cancelled.quantity.value, now = now)
+            eventPersistencePort.release(eventId = cancelled.eventId, amount = cancelled.quantity.value, now = now)
+            publisher.publishEvent(EventAvailabilityChanged(eventId = cancelled.eventId))
         }
+    }
+
+    /**
+     * Confirma uma reserva do usuário, impedindo a expiração. Idempotente: confirmar uma reserva já
+     * Confirmada (ou terminal) não transiciona e devolve 204. Não muda `available` (sem evict).
+     *
+     * @param id id da reserva.
+     * @param userId dono da reserva.
+     * @throws ReservationNotFoundException reserva inexistente ou de outro usuário.
+     */
+    @Transactional
+    override fun confirm(id: UUID, userId: UserId) {
+        reservationPersistencePort.findByIdAndUserId(id = id, userId = userId)
+            ?: throw ReservationNotFoundException(id = id)
+        reservationPersistencePort.confirmIfPending(id = id, userId = userId, now = OffsetDateTime.now(clock))
     }
 }

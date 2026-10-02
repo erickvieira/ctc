@@ -3,7 +3,7 @@ package dev.erickvieira.flashbooking.adapter.output.persistence
 import dev.erickvieira.flashbooking.domain.model.Capacity
 import dev.erickvieira.flashbooking.domain.model.Event
 import dev.erickvieira.flashbooking.fixtures.fake
-import dev.erickvieira.flashbooking.port.output.EventRepository
+import dev.erickvieira.flashbooking.port.output.EventPersistencePort
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -25,7 +25,7 @@ class EventPersistenceAdapterTest {
 	}
 
 	@Autowired
-	private lateinit var repository: EventRepository
+	private lateinit var repository: EventPersistencePort
 
 	@Test
 	fun `save and findById round-trip the event`() {

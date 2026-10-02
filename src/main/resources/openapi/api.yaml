@@ -17,6 +17,8 @@ paths:
     $ref: './endpoints/events_id_reservations.yaml'
   /reservations/{id}:
     $ref: './endpoints/reservations_id.yaml'
+  /reservations/{id}/confirmation:
+    $ref: './endpoints/reservations_id_confirmation.yaml'
 components:
   parameters:
     UserIdHeader:

@@ -168,6 +168,7 @@ val coverageMinimum = 0.90
 
 tasks.withType<Test> {
     useJUnitPlatform()
+    maxParallelForks = 8
     testLogging {
         events("passed", "skipped", "failed")
         exceptionFormat = TestExceptionFormat.SHORT

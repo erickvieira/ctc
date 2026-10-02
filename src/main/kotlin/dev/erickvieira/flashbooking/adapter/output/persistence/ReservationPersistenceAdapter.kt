@@ -9,7 +9,7 @@ import dev.erickvieira.flashbooking.domain.model.ReservationIdempotency
 import dev.erickvieira.flashbooking.domain.model.ReservationInsertion
 import dev.erickvieira.flashbooking.domain.model.ReservationStatus
 import dev.erickvieira.flashbooking.domain.model.UserId
-import dev.erickvieira.flashbooking.port.output.ReservationRepository
+import dev.erickvieira.flashbooking.port.output.ReservationPersistencePort
 import org.springframework.jdbc.core.RowMapper
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate
@@ -22,7 +22,7 @@ import java.util.UUID
 class ReservationPersistenceAdapter(
     private val namedParameterJdbcTemplate: NamedParameterJdbcTemplate,
     private val jpaRepository: ReservationJpaRepository,
-) : ReservationRepository {
+) : ReservationPersistencePort {
     /**
      * Upsert idempotente. 0 linhas só com chave não-nula (NULL nunca conflita no índice único) ->
      * conflito de payload.
@@ -66,7 +66,22 @@ class ReservationPersistenceAdapter(
         jpaRepository.findFirstByIdAndUserId(id = id, userId = userId.value)
             ?.let { ReservationPersistenceMapperImpl.toDomain(entity = it) }
 
-    override fun cancelIfPending(
+    override fun confirmIfPending(
+        id: UUID,
+        userId: UserId,
+        now: OffsetDateTime,
+    ): Reservation? =
+        namedParameterJdbcTemplate
+            .query(
+                CONFIRM_SQL,
+                MapSqlParameterSource()
+                    .addValue("id", id)
+                    .addValue("userId", userId.value)
+                    .addValue("now", now),
+                RESERVATION_ROW_MAPPER,
+            ).firstOrNull()
+
+    override fun cancelIfCancellable(
         id: UUID,
         userId: UserId,
         now: OffsetDateTime,
@@ -118,14 +133,25 @@ class ReservationPersistenceAdapter(
             """.trimIndent()
 
         /**
-         * Transição condicional `PENDING -> CANCELLED`. Devolve <=1 linha -> DELETEs repetidos
-         * devolvem ingressos só uma vez.
+         * Transição condicional `PENDING -> CONFIRMED`. Devolve <=1 linha; já Confirmada não transiciona.
+         */
+        private val CONFIRM_SQL =
+            """
+            UPDATE reservations
+               SET status = 'CONFIRMED', updated_at = :now
+             WHERE id = :id AND user_id = :userId AND status = 'PENDING'
+            RETURNING $RESERVATION_COLUMNS
+            """.trimIndent()
+
+        /**
+         * Transição condicional `{PENDING, CONFIRMED} -> CANCELLED`. Devolve <=1 linha -> DELETEs
+         * repetidos devolvem ingressos só uma vez.
          */
         private val CANCEL_SQL =
             """
             UPDATE reservations
                SET status = 'CANCELLED', updated_at = :now
-             WHERE id = :id AND user_id = :userId AND status = 'PENDING'
+             WHERE id = :id AND user_id = :userId AND status IN ('PENDING', 'CONFIRMED')
             RETURNING $RESERVATION_COLUMNS
             """.trimIndent()
 
@@ -147,9 +173,9 @@ class ReservationPersistenceAdapter(
             RETURNING $RESERVATION_COLUMNS
             """.trimIndent()
 
-        internal val RESERVATION_ROW_MAPPER = RowMapper<Reservation> { rs, _ -> toReservation(rs) }
+        internal val RESERVATION_ROW_MAPPER = RowMapper { rs, _ -> toReservation(rs) }
 
-        internal val INSERT_ROW_MAPPER = RowMapper<InsertRow> { rs, _ ->
+        internal val INSERT_ROW_MAPPER = RowMapper { rs, _ ->
             InsertRow(reservation = toReservation(rs), inserted = rs.getBoolean("inserted"))
         }
 

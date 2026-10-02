@@ -5,7 +5,7 @@ import dev.erickvieira.flashbooking.domain.model.Quantity
 import java.time.OffsetDateTime
 import java.util.UUID
 
-interface EventRepository {
+interface EventPersistencePort {
 	fun save(event: Event): Event
 
 	fun findById(id: UUID): Event?

@@ -5,7 +5,8 @@ import dev.erickvieira.flashbooking.domain.exception.EventNotFoundException
 import dev.erickvieira.flashbooking.domain.model.Event
 import dev.erickvieira.flashbooking.port.input.CreateEventUseCase
 import dev.erickvieira.flashbooking.port.input.GetEventUseCase
-import dev.erickvieira.flashbooking.port.output.EventRepository
+import dev.erickvieira.flashbooking.port.output.EventPersistencePort
+import dev.erickvieira.flashbooking.port.output.EventCachePort
 import org.springframework.stereotype.Service
 import java.time.Clock
 import java.time.OffsetDateTime
@@ -13,7 +14,8 @@ import java.util.UUID
 
 @Service
 class EventService(
-	private val eventRepository: EventRepository,
+	private val eventPersistencePort: EventPersistencePort,
+	private val eventCache: EventCachePort,
 	private val clock: Clock,
 ) : CreateEventUseCase,
 	GetEventUseCase {
@@ -29,8 +31,21 @@ class EventService(
 				createdAt = now,
 				updatedAt = now,
 			)
-		return eventRepository.save(event = event)
+		return eventPersistencePort.save(event = event)
 	}
 
-	override fun getById(id: UUID): Event = eventRepository.findById(id = id) ?: throw EventNotFoundException(id = id)
+	/**
+	 * Cache-aside: cache hit -> devolve; miss -> lê o DB, popula o cache e devolve.
+	 *
+	 * @param id id do evento.
+	 * @return o evento (possivelmente eventualmente consistente).
+	 * @throws EventNotFoundException evento inexistente.
+	 */
+	override fun getById(id: UUID): Event = eventCache.get(eventId = id) ?: loadAndCache(id = id)
+
+	private fun loadAndCache(id: UUID): Event {
+		val event = eventPersistencePort.findById(id = id) ?: throw EventNotFoundException(id = id)
+		eventCache.put(eventId = id, event = event)
+		return event
+	}
 }

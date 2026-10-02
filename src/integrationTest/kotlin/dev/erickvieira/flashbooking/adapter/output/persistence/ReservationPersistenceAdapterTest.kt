@@ -9,8 +9,8 @@ import dev.erickvieira.flashbooking.domain.model.ReservationIdempotency
 import dev.erickvieira.flashbooking.domain.model.ReservationInsertion
 import dev.erickvieira.flashbooking.domain.model.UserId
 import dev.erickvieira.flashbooking.fixtures.fake
-import dev.erickvieira.flashbooking.port.output.EventRepository
-import dev.erickvieira.flashbooking.port.output.ReservationRepository
+import dev.erickvieira.flashbooking.port.output.EventPersistencePort
+import dev.erickvieira.flashbooking.port.output.ReservationPersistencePort
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
@@ -42,35 +42,35 @@ class ReservationPersistenceAdapterTest {
     }
 
     @Autowired
-    private lateinit var eventRepository: EventRepository
+    private lateinit var eventPersistencePort: EventPersistencePort
 
     @Autowired
-    private lateinit var reservationRepository: ReservationRepository
+    private lateinit var reservationPersistencePort: ReservationPersistencePort
 
     @Autowired
     private lateinit var transactionTemplate: TransactionTemplate
 
     @Test
     fun `insertIdempotent without a key and findById round-trip the reservation`() {
-        val event = eventRepository.save(event = Event.fake(capacity = Capacity.of(value = 10)))
+        val event = eventPersistencePort.save(event = Event.fake(capacity = Capacity.of(value = 10)))
         val reservation = Reservation.fake(eventId = event.id, quantity = Quantity.of(value = 2, max = 10))
 
-        val insertion = reservationRepository.insertIdempotent(reservation = reservation, idempotency = null)
+        val insertion = reservationPersistencePort.insertIdempotent(reservation = reservation, idempotency = null)
 
         assertThat(insertion).isEqualTo(ReservationInsertion.Created(reservation = reservation))
-        assertThat(reservationRepository.findByIdAndUserId(id = reservation.id, userId = reservation.userId))
+        assertThat(reservationPersistencePort.findByIdAndUserId(id = reservation.id, userId = reservation.userId))
             .usingRecursiveComparison()
             .isEqualTo(reservation)
     }
 
     @Test
     fun `insertIdempotent replays when the same key and fingerprint are reused`() {
-        val event = eventRepository.save(event = Event.fake(capacity = Capacity.of(value = 10)))
+        val event = eventPersistencePort.save(event = Event.fake(capacity = Capacity.of(value = 10)))
         val idempotency = ReservationIdempotency(key = "key-1", fingerprint = UUID.randomUUID())
         val reservation = Reservation.fake(eventId = event.id, quantity = Quantity.of(value = 2, max = 10))
 
-        val first = reservationRepository.insertIdempotent(reservation = reservation, idempotency = idempotency)
-        val second = reservationRepository.insertIdempotent(
+        val first = reservationPersistencePort.insertIdempotent(reservation = reservation, idempotency = idempotency)
+        val second = reservationPersistencePort.insertIdempotent(
             reservation = Reservation.fake(
                 eventId = event.id,
                 userId = reservation.userId,
@@ -85,16 +85,16 @@ class ReservationPersistenceAdapterTest {
 
     @Test
     fun `insertIdempotent conflicts when the key is reused with a different fingerprint`() {
-        val event = eventRepository.save(event = Event.fake(capacity = Capacity.of(value = 10)))
+        val event = eventPersistencePort.save(event = Event.fake(capacity = Capacity.of(value = 10)))
         val key = "key-1"
         val reservation = Reservation.fake(eventId = event.id, quantity = Quantity.of(value = 2, max = 10))
-        reservationRepository.insertIdempotent(
+        reservationPersistencePort.insertIdempotent(
             reservation = reservation,
             idempotency = ReservationIdempotency(key = key, fingerprint = UUID.randomUUID()),
         )
 
         assertThrows<IdempotencyConflictException> {
-            reservationRepository.insertIdempotent(
+            reservationPersistencePort.insertIdempotent(
                 reservation = Reservation.fake(
                     eventId = event.id,
                     userId = reservation.userId,
@@ -111,7 +111,7 @@ class ReservationPersistenceAdapterTest {
      */
     @Test
     fun `an aborted concurrent insert still yields Created for a second attempt of the same key`() {
-        val event = eventRepository.save(event = Event.fake(capacity = Capacity.of(value = 10)))
+        val event = eventPersistencePort.save(event = Event.fake(capacity = Capacity.of(value = 10)))
         val idempotency = ReservationIdempotency(key = "key-1", fingerprint = UUID.randomUUID())
         val userId = UserId.fake()
         val quantity = Quantity.of(value = 2, max = 10)
@@ -126,7 +126,7 @@ class ReservationPersistenceAdapterTest {
             val firstTx = CompletableFuture.runAsync(
                 {
                     transactionTemplate.executeWithoutResult {
-                        reservationRepository.insertIdempotent(reservation = first, idempotency = idempotency)
+                        reservationPersistencePort.insertIdempotent(reservation = first, idempotency = idempotency)
                         firstInserted.countDown()
                         abort.await()
                         throw IllegalStateException("forced rollback")
@@ -139,7 +139,7 @@ class ReservationPersistenceAdapterTest {
 
             val secondTx = CompletableFuture.supplyAsync(
                 {
-                    reservationRepository.insertIdempotent(reservation = second, idempotency = idempotency)
+                    reservationPersistencePort.insertIdempotent(reservation = second, idempotency = idempotency)
                 },
                 executor,
             )

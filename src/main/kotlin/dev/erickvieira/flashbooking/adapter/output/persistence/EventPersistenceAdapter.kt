@@ -4,7 +4,7 @@ import dev.erickvieira.flashbooking.adapter.output.persistence.mapper.EventPersi
 import dev.erickvieira.flashbooking.adapter.output.persistence.repository.EventJpaRepository
 import dev.erickvieira.flashbooking.domain.model.Event
 import dev.erickvieira.flashbooking.domain.model.Quantity
-import dev.erickvieira.flashbooking.port.output.EventRepository
+import dev.erickvieira.flashbooking.port.output.EventPersistencePort
 import org.springframework.stereotype.Repository
 import java.time.OffsetDateTime
 import java.util.UUID
@@ -12,7 +12,7 @@ import java.util.UUID
 @Repository
 class EventPersistenceAdapter(
 	private val jpaRepository: EventJpaRepository,
-) : EventRepository {
+) : EventPersistencePort {
 	override fun save(event: Event): Event {
 		val entity = EventPersistenceMapperImpl.toEntity(event = event)
 		val saved = jpaRepository.save(entity)

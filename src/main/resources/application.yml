@@ -48,5 +48,5 @@ app:
     sweep-interval: 2s
     batch-size: 100
   cache:
-    event-view-ttl: 30s
-    event-view-ttl-jitter: 5s
+    event-ttl: 30s
+    event-ttl-jitter: 5s

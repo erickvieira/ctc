@@ -26,3 +26,12 @@ docker compose up --build
 - API/Health: http://localhost:8080/actuator/health
 - Swagger UI: http://localhost:8080/swagger-ui/index.html
 - Smoke: `./scripts/smoke.sh`
+
+## Testes
+
+```
+./gradlew verify --parallel --max-workers=8
+```
+
+`verify` = `test` (unit) + `integrationTest` (Testcontainers) + `mutationTest` (gate kill ≥ 90%). Classes rodam em paralelo (`maxParallelForks = 8`); `--parallel`/`--max-workers` também estão em `gradle.properties`.
+

@@ -4,7 +4,7 @@ import dev.erickvieira.flashbooking.adapter.input.web.filter.UserIdFilter
 import dev.erickvieira.flashbooking.domain.model.Capacity
 import dev.erickvieira.flashbooking.domain.model.Event
 import dev.erickvieira.flashbooking.fixtures.fake
-import dev.erickvieira.flashbooking.port.output.EventRepository
+import dev.erickvieira.flashbooking.port.output.EventPersistencePort
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -40,7 +40,7 @@ class ReservationApiIntegrationTest {
 	private lateinit var mockMvc: MockMvc
 
 	@Autowired
-	private lateinit var eventRepository: EventRepository
+	private lateinit var eventPersistencePort: EventPersistencePort
 
 	private val userId = "11111111-1111-1111-1111-111111111111"
 	private val otherUserId = "22222222-2222-2222-2222-222222222222"
@@ -317,8 +317,59 @@ class ReservationApiIntegrationTest {
 			.andExpect(jsonPath("$.code").value("RESERVATION_NOT_FOUND"))
 	}
 
+	@Test
+	fun `POST confirmation confirms a reservation and a later DELETE returns the seats`() {
+		val eventId = createEvent(capacity = 2)
+		val location = reserve(eventId, userId, "2")
+
+		mockMvc
+			.perform(post("$location/confirmation").header(UserIdFilter.USER_ID_HEADER, userId))
+			.andExpect(status().isNoContent)
+
+		mockMvc
+			.perform(get(location).header(UserIdFilter.USER_ID_HEADER, userId))
+			.andExpect(status().isOk)
+			.andExpect(jsonPath("$.status").value("CONFIRMED"))
+
+		mockMvc
+			.perform(delete(location).header(UserIdFilter.USER_ID_HEADER, userId))
+			.andExpect(status().isNoContent)
+
+		mockMvc
+			.perform(get(location).header(UserIdFilter.USER_ID_HEADER, userId))
+			.andExpect(status().isOk)
+			.andExpect(jsonPath("$.status").value("CANCELLED"))
+
+		reserve(eventId, userId, "2")
+	}
+
+	@Test
+	fun `POST confirmation is idempotent`() {
+		val eventId = createEvent(capacity = 2)
+		val location = reserve(eventId, userId, "1")
+
+		mockMvc
+			.perform(post("$location/confirmation").header(UserIdFilter.USER_ID_HEADER, userId))
+			.andExpect(status().isNoContent)
+
+		mockMvc
+			.perform(post("$location/confirmation").header(UserIdFilter.USER_ID_HEADER, userId))
+			.andExpect(status().isNoContent)
+	}
+
+	@Test
+	fun `POST confirmation from another user is 404`() {
+		val eventId = createEvent(capacity = 2)
+		val location = reserve(eventId, userId, "1")
+
+		mockMvc
+			.perform(post("$location/confirmation").header(UserIdFilter.USER_ID_HEADER, otherUserId))
+			.andExpect(status().isNotFound)
+			.andExpect(jsonPath("$.code").value("RESERVATION_NOT_FOUND"))
+	}
+
 	private fun createEvent(capacity: Int): UUID =
-		eventRepository.save(event = Event.fake(capacity = Capacity.of(value = capacity))).id
+		eventPersistencePort.save(event = Event.fake(capacity = Capacity.of(value = capacity))).id
 
 	private fun reserve(
 		eventId: UUID,

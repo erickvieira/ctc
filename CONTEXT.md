@@ -13,7 +13,7 @@ Total de ingressos que um evento pode vender. Fixa desde a criação.
 _Avoid_: Lotação, limite, total
 
 **Disponível**:
-Ingressos ainda não segurados por reservas pendentes. Capacidade menos a soma das quantidades seguradas.
+Ingressos ainda não segurados por reservas ativas (Pendente ou Confirmada). Capacidade menos a soma das quantidades seguradas.
 _Avoid_: Estoque, saldo, vagas
 
 **Reserva**:
@@ -25,8 +25,12 @@ Número de ingressos que uma reserva segura de um evento. Inteiro de 1 até o m�
 _Avoid_: Total, tamanho, contagem
 
 **Pendente**:
-Estado inicial de uma reserva que está segurando ingressos e ainda pode ser cancelada.
+Estado inicial de uma reserva que está segurando ingressos, ainda não confirmada; pode ser confirmada, cancelada ou expirar.
 _Avoid_: Ativa, aberta
+
+**Confirmada**:
+Reserva efetivada pelo cliente antes de expirar; segue segurando ingressos e não expira, mas ainda pode ser cancelada.
+_Avoid_: Paga, efetivada
 
 **Expirada**:
 Estado terminal de uma reserva cujo tempo de vida terminou; seus ingressos já voltaram ao evento.
@@ -41,7 +45,7 @@ Passagem automática de Pendente para Expirada ao fim do tempo de vida.
 _Avoid_: Timeout, vencimento
 
 **Cancelamento**:
-Passagem de Pendente para Cancelada por requisição explícita.
+Passagem de Pendente ou Confirmada para Cancelada por requisição explícita.
 _Avoid_: Deleção, remoção
 
 **Tempo de vida**:

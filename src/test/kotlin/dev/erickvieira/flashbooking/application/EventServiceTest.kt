@@ -5,10 +5,13 @@ import dev.erickvieira.flashbooking.domain.exception.EventNotFoundException
 import dev.erickvieira.flashbooking.domain.model.Capacity
 import dev.erickvieira.flashbooking.domain.model.Event
 import dev.erickvieira.flashbooking.fixtures.fake
-import dev.erickvieira.flashbooking.port.output.EventRepository
+import dev.erickvieira.flashbooking.port.output.EventPersistencePort
+import dev.erickvieira.flashbooking.port.output.EventCachePort
+import io.mockk.Runs
 import io.mockk.checkUnnecessaryStub
 import io.mockk.confirmVerified
 import io.mockk.every
+import io.mockk.just
 import io.mockk.mockk
 import io.mockk.verify
 import org.assertj.core.api.Assertions.assertThat
@@ -25,13 +28,14 @@ import java.util.UUID
 class EventServiceTest {
 	private val fixedInstant = Instant.parse("2026-01-01T12:00:00Z")
 	private val clock = Clock.fixed(fixedInstant, ZoneOffset.UTC)
-	private val repository = mockk<EventRepository>()
-	private val service = EventService(eventRepository = repository, clock = clock)
+	private val repository = mockk<EventPersistencePort>()
+	private val cache = mockk<EventCachePort>()
+	private val service = EventService(eventPersistencePort = repository, eventCache = cache, clock = clock)
 
 	@AfterEach
 	fun enforceStrictVerification() {
-		confirmVerified(repository)
-		checkUnnecessaryStub(repository)
+		confirmVerified(repository, cache)
+		checkUnnecessaryStub(repository, cache)
 	}
 
 	@Nested
@@ -60,23 +64,42 @@ class EventServiceTest {
 	@DisplayName("getById")
 	inner class GetById {
 		@Test
-		fun `returns the event when the repository finds it`() {
+		fun `returns the cached event on a hit`() {
 			val event = Event.fake()
-			every { repository.findById(id = event.id) } returns event
+			every { cache.get(eventId = event.id) } returns event
 
 			assertThat(service.getById(id = event.id)).usingRecursiveComparison().isEqualTo(event)
+
+			verify(exactly = 1) { cache.get(eventId = event.id) }
+			verify(exactly = 0) { repository.findById(id = any()) }
+			verify(exactly = 0) { cache.put(eventId = any(), event = any()) }
+		}
+
+		@Test
+		fun `loads from the repository and caches on a miss`() {
+			val event = Event.fake()
+			every { cache.get(eventId = event.id) } returns null
+			every { repository.findById(id = event.id) } returns event
+			every { cache.put(eventId = event.id, event = event) } just Runs
+
+			assertThat(service.getById(id = event.id)).usingRecursiveComparison().isEqualTo(event)
+
+			verify(exactly = 1) { cache.get(eventId = event.id) }
 			verify(exactly = 1) { repository.findById(id = event.id) }
+			verify(exactly = 1) { cache.put(eventId = event.id, event = event) }
 		}
 
 		@Test
 		fun `throws when the event does not exist`() {
 			val id = UUID.randomUUID()
+			every { cache.get(eventId = id) } returns null
 			every { repository.findById(id = id) } returns null
 
-			val exception = assertThrows<EventNotFoundException> { service.getById(id = id) }
+			assertThrows<EventNotFoundException> { service.getById(id = id) }
 
-			assertThat(exception.id).isEqualTo(id)
+			verify(exactly = 1) { cache.get(eventId = id) }
 			verify(exactly = 1) { repository.findById(id = id) }
+			verify(exactly = 0) { cache.put(eventId = any(), event = any()) }
 		}
 	}
 }

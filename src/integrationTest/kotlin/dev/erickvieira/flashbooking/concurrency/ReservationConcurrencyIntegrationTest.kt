@@ -7,7 +7,7 @@ import dev.erickvieira.flashbooking.domain.model.Event
 import dev.erickvieira.flashbooking.domain.model.Quantity
 import dev.erickvieira.flashbooking.fixtures.fake
 import dev.erickvieira.flashbooking.port.input.CreateReservationUseCase
-import dev.erickvieira.flashbooking.port.output.EventRepository
+import dev.erickvieira.flashbooking.port.output.EventPersistencePort
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -33,7 +33,7 @@ class ReservationConcurrencyIntegrationTest {
 	}
 
 	@Autowired
-	private lateinit var eventRepository: EventRepository
+	private lateinit var eventPersistencePort: EventPersistencePort
 
 	@Autowired
 	private lateinit var createReservationUseCase: CreateReservationUseCase
@@ -42,7 +42,7 @@ class ReservationConcurrencyIntegrationTest {
 	fun `never oversells under concurrent reservations`() {
 		val capacity = 50
 		val attempts = 100
-		val event = eventRepository.save(event = Event.fake(capacity = Capacity.of(value = capacity)))
+		val event = eventPersistencePort.save(event = Event.fake(capacity = Capacity.of(value = capacity)))
 
 		val start = CountDownLatch(1)
 		val successes = AtomicInteger()
@@ -76,6 +76,6 @@ class ReservationConcurrencyIntegrationTest {
 
 		assertThat(successes.get()).isEqualTo(capacity)
 		assertThat(soldOut.get()).isEqualTo(attempts - capacity)
-		assertThat(eventRepository.findById(id = event.id)!!.available).isZero()
+		assertThat(eventPersistencePort.findById(id = event.id)!!.available).isZero()
 	}
 }

@@ -149,36 +149,67 @@ class ReservationPersistenceAdapterUnitTest {
         }
     }
 
-    @Nested
-    @DisplayName("cancelIfPending")
-    inner class CancelIfPending {
-        @Test
-        fun `returns the cancelled reservation when the transition happens`() {
-            val reservation = Reservation.fake(status = ReservationStatus.CANCELLED)
-            every {
-                namedParameterJdbcTemplate.query(any(), any<SqlParameterSource>(), any<RowMapper<Reservation>>())
-            } returns listOf(reservation)
+	@Nested
+	@DisplayName("confirmIfPending")
+	inner class ConfirmIfPending {
+		@Test
+		fun `returns the confirmed reservation when the transition happens`() {
+			val reservation = Reservation.fake(status = ReservationStatus.CONFIRMED)
+			every {
+				namedParameterJdbcTemplate.query(any(), any<SqlParameterSource>(), any<RowMapper<Reservation>>())
+			} returns listOf(reservation)
 
-            val result = adapter.cancelIfPending(id = reservation.id, userId = reservation.userId, now = fixedNow)
+			val result = adapter.confirmIfPending(id = reservation.id, userId = reservation.userId, now = fixedNow)
 
-            assertThat(result).usingRecursiveComparison().isEqualTo(reservation)
-            verify(exactly = 1) {
-                namedParameterJdbcTemplate.query(any(), any<SqlParameterSource>(), any<RowMapper<Reservation>>())
-            }
-        }
+			assertThat(result).usingRecursiveComparison().isEqualTo(reservation)
+			verify(exactly = 1) {
+				namedParameterJdbcTemplate.query(any(), any<SqlParameterSource>(), any<RowMapper<Reservation>>())
+			}
+		}
 
-        @Test
-        fun `returns null when no row transitions`() {
-            every {
-                namedParameterJdbcTemplate.query(any(), any<SqlParameterSource>(), any<RowMapper<Reservation>>())
-            } returns emptyList()
+		@Test
+		fun `returns null when no row transitions`() {
+			every {
+				namedParameterJdbcTemplate.query(any(), any<SqlParameterSource>(), any<RowMapper<Reservation>>())
+			} returns emptyList()
 
-            assertThat(adapter.cancelIfPending(id = UUID.randomUUID(), userId = UserId.fake(), now = fixedNow)).isNull()
-            verify(exactly = 1) {
-                namedParameterJdbcTemplate.query(any(), any<SqlParameterSource>(), any<RowMapper<Reservation>>())
-            }
-        }
-    }
+			assertThat(adapter.confirmIfPending(id = UUID.randomUUID(), userId = UserId.fake(), now = fixedNow)).isNull()
+			verify(exactly = 1) {
+				namedParameterJdbcTemplate.query(any(), any<SqlParameterSource>(), any<RowMapper<Reservation>>())
+			}
+		}
+	}
+
+	@Nested
+	@DisplayName("cancelIfCancellable")
+	inner class CancelIfCancellable {
+		@Test
+		fun `returns the cancelled reservation when the transition happens`() {
+			val reservation = Reservation.fake(status = ReservationStatus.CANCELLED)
+			every {
+				namedParameterJdbcTemplate.query(any(), any<SqlParameterSource>(), any<RowMapper<Reservation>>())
+			} returns listOf(reservation)
+
+			val result = adapter.cancelIfCancellable(id = reservation.id, userId = reservation.userId, now = fixedNow)
+
+			assertThat(result).usingRecursiveComparison().isEqualTo(reservation)
+			verify(exactly = 1) {
+				namedParameterJdbcTemplate.query(any(), any<SqlParameterSource>(), any<RowMapper<Reservation>>())
+			}
+		}
+
+		@Test
+		fun `returns null when no row transitions`() {
+			every {
+				namedParameterJdbcTemplate.query(any(), any<SqlParameterSource>(), any<RowMapper<Reservation>>())
+			} returns emptyList()
+
+			assertThat(adapter.cancelIfCancellable(id = UUID.randomUUID(), userId = UserId.fake(), now = fixedNow)).isNull()
+			verify(exactly = 1) {
+				namedParameterJdbcTemplate.query(any(), any<SqlParameterSource>(), any<RowMapper<Reservation>>())
+			}
+		}
+	}
 
     @Nested
     @DisplayName("expirePending")

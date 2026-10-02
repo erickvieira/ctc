@@ -7,7 +7,7 @@ import dev.erickvieira.flashbooking.domain.model.UserId
 import java.time.OffsetDateTime
 import java.util.UUID
 
-interface ReservationRepository {
+interface ReservationPersistencePort {
 	fun insertIdempotent(
 		reservation: Reservation,
 		idempotency: ReservationIdempotency?,
@@ -15,7 +15,13 @@ interface ReservationRepository {
 
 	fun findByIdAndUserId(id: UUID, userId: UserId): Reservation?
 
-	fun cancelIfPending(
+	fun confirmIfPending(
+		id: UUID,
+		userId: UserId,
+		now: OffsetDateTime,
+	): Reservation?
+
+	fun cancelIfCancellable(
 		id: UUID,
 		userId: UserId,
 		now: OffsetDateTime,

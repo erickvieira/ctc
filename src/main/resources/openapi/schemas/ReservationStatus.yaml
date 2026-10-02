@@ -3,5 +3,6 @@ description: Estado de uma reserva.
 type: string
 enum:
   - PENDING
+  - CONFIRMED
   - EXPIRED
   - CANCELLED

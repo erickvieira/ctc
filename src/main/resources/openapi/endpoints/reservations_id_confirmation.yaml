@@ -1,0 +1,30 @@
+post:
+  tags: [Reservations]
+  summary: Confirma uma reserva, impedindo a expiração.
+  description: >-
+    Confirma uma reserva Pendente, tornando-a permanente (não expira). Idempotente: confirmar uma
+    reserva já Confirmada também responde 204.
+  operationId: confirmReservation
+  parameters:
+    - $ref: '../api.yaml#/components/parameters/UserIdHeader'
+    - in: path
+      name: id
+      required: true
+      schema:
+        type: string
+        format: uuid
+  responses:
+    '204':
+      description: Reserva confirmada (ou já confirmada); idempotente.
+    '400':
+      description: Requisição inválida.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '../schemas/Problem.yaml'
+    '404':
+      description: Reserva não encontrada ou pertencente a outro usuário.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '../schemas/Problem.yaml'
