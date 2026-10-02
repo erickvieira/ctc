@@ -40,6 +40,13 @@ springdoc:
   swagger-ui:
     path: /swagger-ui.html
 
+logging:
+  level:
+    root: INFO
+    dev.erickvieira.flashbooking: INFO
+    org.hibernate.SQL: WARN
+    org.testcontainers: WARN
+
 app:
   reservation:
     ttl: 10m

@@ -1,6 +1,7 @@
 package dev.erickvieira.flashbooking.adapter.input.web.controller
 
 import dev.erickvieira.flashbooking.adapter.input.web.api.ReservationsApi
+import dev.erickvieira.flashbooking.adapter.input.web.filter.UserIdFilter
 import dev.erickvieira.flashbooking.adapter.input.web.mapper.ReservationApiMapperImpl
 import dev.erickvieira.flashbooking.adapter.input.web.model.CreateReservationRequest
 import dev.erickvieira.flashbooking.adapter.input.web.model.Reservation as ReservationResponse
@@ -11,6 +12,7 @@ import dev.erickvieira.flashbooking.port.input.CancelReservationUseCase
 import dev.erickvieira.flashbooking.port.input.ConfirmReservationUseCase
 import dev.erickvieira.flashbooking.port.input.CreateReservationUseCase
 import dev.erickvieira.flashbooking.port.input.GetReservationUseCase
+import org.slf4j.MDC
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.RestController
 import java.net.URI
@@ -30,6 +32,7 @@ class ReservationController(
         createReservationRequest: CreateReservationRequest,
         idempotencyKey: String?,
     ): ResponseEntity<ReservationResponse> {
+        MDC.put(UserIdFilter.MDC_EVENT_ID_KEY, id.toString())
         val command =
             ReservationApiMapperImpl.toCommand(
                 id = id,
@@ -39,6 +42,7 @@ class ReservationController(
                 idempotencyKey = idempotencyKey,
             )
         val insertion = createReservationUseCase.create(command = command)
+        MDC.put(UserIdFilter.MDC_RESERVATION_ID_KEY, insertion.reservation.id.toString())
         val response = ReservationApiMapperImpl.toResponse(reservation = insertion.reservation)
         val location = URI.create("/reservations/${insertion.reservation.id}")
         return when (insertion) {
@@ -50,15 +54,18 @@ class ReservationController(
     override fun getReservation(
         xUserId: UUID,
         id: UUID,
-    ): ResponseEntity<ReservationResponse> =
-        getReservationUseCase.getByIdAndUserId(id = id, userId = UserId(value = xUserId))
+    ): ResponseEntity<ReservationResponse> {
+        MDC.put(UserIdFilter.MDC_RESERVATION_ID_KEY, id.toString())
+        return getReservationUseCase.getByIdAndUserId(id = id, userId = UserId(value = xUserId))
             .let { ReservationApiMapperImpl.toResponse(reservation = it) }
             .let { ResponseEntity.ok(it) }
+    }
 
     override fun deleteReservation(
         xUserId: UUID,
         id: UUID,
     ): ResponseEntity<Unit> {
+        MDC.put(UserIdFilter.MDC_RESERVATION_ID_KEY, id.toString())
         cancelReservationUseCase.cancel(id = id, userId = UserId(value = xUserId))
         return ResponseEntity.noContent().build()
     }
@@ -67,6 +74,7 @@ class ReservationController(
         xUserId: UUID,
         id: UUID,
     ): ResponseEntity<Unit> {
+        MDC.put(UserIdFilter.MDC_RESERVATION_ID_KEY, id.toString())
         confirmReservationUseCase.confirm(id = id, userId = UserId(value = xUserId))
         return ResponseEntity.noContent().build()
     }

@@ -4,6 +4,7 @@ import dev.erickvieira.flashbooking.config.ExpirationProperties
 import dev.erickvieira.flashbooking.domain.model.EventAvailabilityChanged
 import dev.erickvieira.flashbooking.port.output.EventPersistencePort
 import dev.erickvieira.flashbooking.port.output.ReservationPersistencePort
+import org.slf4j.LoggerFactory
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
@@ -31,9 +32,14 @@ class ReservationExpirationService(
         expired
             .groupBy { it.eventId }
             .forEach { (eventId, batch) ->
+                logger.info("reservations expired: eventId={} count={}", eventId, batch.size)
                 val amount = batch.sumOf { it.quantity.value }
                 eventPersistencePort.release(eventId = eventId, amount = amount, now = now)
                 publisher.publishEvent(EventAvailabilityChanged(eventId = eventId))
             }
+    }
+
+    private companion object {
+        private val logger = LoggerFactory.getLogger(ReservationExpirationService::class.java)
     }
 }

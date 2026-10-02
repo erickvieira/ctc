@@ -16,6 +16,7 @@ import dev.erickvieira.flashbooking.port.input.CreateReservationUseCase
 import dev.erickvieira.flashbooking.port.input.GetReservationUseCase
 import dev.erickvieira.flashbooking.port.output.EventPersistencePort
 import dev.erickvieira.flashbooking.port.output.ReservationPersistencePort
+import org.slf4j.LoggerFactory
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -74,13 +75,18 @@ class ReservationService(
                         now = now
                     )
                 ) {
+                    logger.warn("reservation rejected: event sold out: eventId={}", command.eventId)
                     throw EventSoldOutException(eventId = command.eventId)
                 }
+                logger.info("reservation created: reservationId={}", reservation.id)
                 publisher.publishEvent(EventAvailabilityChanged(eventId = command.eventId))
                 insertion
             }
 
-            is ReservationInsertion.Replayed -> insertion
+            is ReservationInsertion.Replayed -> {
+                logger.info("reservation replayed: reservationId={}", reservation.id)
+                insertion
+            }
         }
     }
 
@@ -103,6 +109,7 @@ class ReservationService(
         val now = OffsetDateTime.now(clock)
         val cancelled = reservationPersistencePort.cancelIfCancellable(id = id, userId = userId, now = now)
         if (cancelled != null) {
+            logger.info("reservation cancelled: reservationId={}", id)
             eventPersistencePort.release(eventId = cancelled.eventId, amount = cancelled.quantity.value, now = now)
             publisher.publishEvent(EventAvailabilityChanged(eventId = cancelled.eventId))
         }
@@ -121,5 +128,10 @@ class ReservationService(
         reservationPersistencePort.findByIdAndUserId(id = id, userId = userId)
             ?: throw ReservationNotFoundException(id = id)
         reservationPersistencePort.confirmIfPending(id = id, userId = userId, now = OffsetDateTime.now(clock))
+        logger.info("reservation confirmation handled: reservationId={}", id)
+    }
+
+    private companion object {
+        private val logger = LoggerFactory.getLogger(ReservationService::class.java)
     }
 }
